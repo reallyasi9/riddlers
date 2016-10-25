@@ -1,5 +1,10 @@
 package main
 
+import (
+	"bytes"
+	"fmt"
+)
+
 const radix = 26
 
 type node struct {
@@ -89,4 +94,48 @@ func (ot *OptimizedTrie) put(x *node, key string, val int, d int) *node {
 	c := key[d] - 'A'
 	x.next[c] = ot.put(x.next[c], key, val, d+1)
 	return x
+}
+
+// DFS performs a depth-first visit of all key:value paris in the Trie.
+func (ot *OptimizedTrie) DFS(visitor func(string, int) error) error {
+	var buf bytes.Buffer
+	node := ot.root
+	err := node.dfs(&buf, visitor)
+	return err
+}
+
+func (n *node) dfs(buf *bytes.Buffer, visitor func(string, int) error) error {
+	if n.val != 0 {
+		err := visitor(buf.String(), n.val)
+		if err != nil {
+			return err
+		}
+	}
+	for i, c := range n.next {
+		if c == nil {
+			continue
+		}
+		buf.WriteRune(rune('A' + i))
+		err := c.dfs(buf, visitor)
+		if err != nil {
+			return err
+		}
+		buf.Truncate(buf.Len() - 1)
+	}
+	return nil
+}
+
+type stringifier struct {
+	buf bytes.Buffer
+}
+
+func (s *stringifier) visitor(key string, val int) error {
+	s.buf.WriteString(fmt.Sprintf("%s: %d\n", key, val))
+	return nil
+}
+
+func (ot *OptimizedTrie) String() string {
+	var s stringifier
+	ot.DFS(s.visitor)
+	return s.buf.String()
 }

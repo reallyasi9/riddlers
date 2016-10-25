@@ -12,8 +12,69 @@ import (
 	"strings"
 )
 
+// Boggler is an interface to a boggle board
+type Boggler interface {
+	Rows() int
+	Cols() int
+	Get(int, int) rune
+	GetLinear(int) rune
+}
+
 // BoggleBoard is a struct that defines a Boggle playspace
-type BoggleBoard [][]rune
+type BoggleBoard struct {
+	rows  int
+	cols  int
+	board [][]rune
+}
+
+// Rows implements Boggler's interface
+func (bb *BoggleBoard) Rows() int {
+	return bb.rows
+}
+
+// Cols implements Boggler's interface
+func (bb *BoggleBoard) Cols() int {
+	return bb.cols
+}
+
+// Get implements Boggler's interface
+func (bb *BoggleBoard) Get(i int, j int) rune {
+	return bb.board[i][j]
+}
+
+// GetLinear implements Boggler's interface
+func (bb *BoggleBoard) GetLinear(k int) rune {
+	return bb.board[k/bb.cols][k%bb.cols]
+}
+
+// DiceBoard stores the actual dice used to make the board (instead of storing the runes)
+type DiceBoard struct {
+	rows int
+	cols int
+	dice []string
+	die  [][]int
+	face [][]int
+}
+
+// Rows implements Boggler's interface
+func (bb *DiceBoard) Rows() int {
+	return bb.rows
+}
+
+// Cols implements Boggler's interface
+func (bb *DiceBoard) Cols() int {
+	return bb.cols
+}
+
+// Get implements Boggler's interface
+func (bb *DiceBoard) Get(i int, j int) rune {
+	return rune(bb.dice[bb.die[i][j]][bb.face[i][j]])
+}
+
+// GetLinear implements Boggler's interface
+func (bb *DiceBoard) GetLinear(k int) rune {
+	return bb.Get(k/bb.cols, k%bb.cols)
+}
 
 // the 16 Boggle dice (1992 version)
 var boggle1992 = []string{
@@ -49,7 +110,7 @@ var boggleBig = []string{
 	"FIPRSY", "GORRVW", "IPRRRY", "NOOTUW", "OOOTTU",
 }
 
-// letters and frequencies of letters in the English alphabet
+// letters in the English alphabet
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 var frequencies = []float64{
@@ -67,18 +128,46 @@ func inPlaceShuffle(a *[]string) {
 	}
 }
 
+func shuffledInts(n int) []int {
+	a := make([]int, n)
+	for i := range a {
+		a[i] = i
+	}
+	for i := range a {
+		j := rand.Intn(i + 1)
+		a[i], a[j] = a[j], a[i]
+	}
+	return a
+}
+
 func newBoggleBoard(rows int, cols int, dice []string) *BoggleBoard {
 	inPlaceShuffle(&dice)
-	board := make(BoggleBoard, rows)
+	board := make([][]rune, rows)
 	for i := 0; i < rows; i++ {
 		board[i] = make([]rune, cols)
 		for j := 0; j < cols; j++ {
-			letters := boggle1992[cols*i+j]
+			letters := dice[cols*i+j]
 			r := rand.Intn(len(letters))
 			board[i][j] = rune(letters[r])
 		}
 	}
-	return &board
+	return &BoggleBoard{rows: rows, cols: cols, board: board}
+}
+
+func newDiceBoard(rows int, cols int, dice []string) *DiceBoard {
+	diceorder := shuffledInts(len(dice))
+	die := make([][]int, rows)
+	face := make([][]int, rows)
+	l := len(dice[0])
+	for i := 0; i < rows; i++ {
+		die[i] = make([]int, cols)
+		face[i] = make([]int, len(dice[0]))
+		for j := 0; j < cols; j++ {
+			die[i][j] = diceorder[cols*i+j]
+			face[i][j] = rand.Intn(l)
+		}
+	}
+	return &DiceBoard{rows: rows, cols: cols, dice: dice, die: die, face: face}
 }
 
 // NewBoggleBoard initializes a random 4-by-4 board by rolling the Hasbro dice.
@@ -106,9 +195,27 @@ func NewBoggleBoardBig() *BoggleBoard {
 
 func (bb *BoggleBoard) String() string {
 	var bf bytes.Buffer
-	bf.WriteString(fmt.Sprintf("%d %d\n", len(*bb), len((*bb)[0])))
-	for _, br := range *bb {
+	bf.WriteString(fmt.Sprintf("%d %d\n", bb.rows, bb.cols))
+	for _, br := range bb.board {
 		for _, bc := range br {
+			bf.WriteRune(bc)
+			if bc == 'Q' {
+				bf.WriteString("u ")
+			} else {
+				bf.WriteString("  ")
+			}
+		}
+		bf.WriteString("\n")
+	}
+	return strings.TrimSpace(bf.String())
+}
+
+func (bb *DiceBoard) String() string {
+	var bf bytes.Buffer
+	bf.WriteString(fmt.Sprintf("%d %d\n", bb.rows, bb.cols))
+	for i := 0; i < bb.Rows(); i++ {
+		for j := 0; j < bb.Cols(); j++ {
+			bc := bb.Get(i, j)
 			bf.WriteRune(bc)
 			if bc == 'Q' {
 				bf.WriteString("u ")
@@ -123,6 +230,11 @@ func (bb *BoggleBoard) String() string {
 
 // MarshalText implements text marshalling for TextMarshaler interface.
 func (bb *BoggleBoard) MarshalText() ([]byte, error) {
+	return []byte(bb.String()), nil
+}
+
+// MarshalText implements text marshalling for TextMarshaler interface.
+func (bb *DiceBoard) MarshalText() ([]byte, error) {
 	return []byte(bb.String()), nil
 }
 
@@ -142,10 +254,9 @@ func (bb *BoggleBoard) UnmarshalText(text []byte) error {
 		return err
 	}
 
-	(*bb) = nil
-	(*bb) = make(BoggleBoard, rows)
+	board := make([][]rune, rows)
 	for i := 0; i < rows; i++ {
-		(*bb)[i] = make([]rune, cols)
+		board[i] = make([]rune, cols)
 		for j := 0; j < cols; j++ {
 			if !scanner.Scan() {
 				return errors.New("ran out of letters when scanning text")
@@ -161,12 +272,16 @@ func (bb *BoggleBoard) UnmarshalText(text []byte) error {
 			}
 
 			if letter == "QU" {
-				(*bb)[i][j] = 'Q'
+				board[i][j] = 'Q'
 			} else {
-				(*bb)[i][j] = rune(letter[0])
+				board[i][j] = rune(letter[0])
 			}
 		}
 	}
+
+	bb.rows = rows
+	bb.cols = cols
+	bb.board = board
 
 	return nil
 }
@@ -214,7 +329,7 @@ func randomIndex(p []float64) (int, error) {
 
 // NewBoggleBoardRandom creates a random M-by-N board according to the frequency of letters in the English language
 func NewBoggleBoardRandom(rows int, cols int) *BoggleBoard {
-	board := make(BoggleBoard, rows)
+	board := make([][]rune, rows)
 	for i := 0; i < rows; i++ {
 		board[i] = make([]rune, cols)
 		for j := 0; j < cols; j++ {
@@ -223,13 +338,50 @@ func NewBoggleBoardRandom(rows int, cols int) *BoggleBoard {
 		}
 	}
 
-	return &board
+	return &BoggleBoard{rows: rows, cols: cols, board: board}
+}
+
+// DictShuffle shuffles the dice according to the 2-letter occurance frequencies
+func (bb *DiceBoard) DictShuffle(adjList [][]int, f2 [][]float64) {
+	weights := make([]float64, bb.rows*bb.cols)
+	for i, adjl := range adjList {
+		for _, adj := range adjl {
+			r1 := bb.GetLinear(i)
+			r2 := bb.GetLinear(adj)
+			weights[i] += f2[r1-'A'][r2-'A']
+		}
+		weights[i] = 1. - weights[i]/float64(len(adjl))
+	}
+
+	i1, err := randomIndex(weights)
+	if err != nil {
+		panic(err)
+	}
+	i2, err := randomIndex(weights)
+	if err != nil {
+		panic(err)
+	}
+
+	r1 := i1 / bb.Cols()
+	c1 := i1 % bb.Cols()
+	r2 := i2 / bb.Cols()
+	c2 := i2 % bb.Cols()
+
+	// Flip?
+	if rand.Float32() < .5 {
+		bb.die[r1][c1], bb.die[r2][c2] = bb.die[r2][c2], bb.die[r1][c1]
+	}
+
+	// Roll
+	l := len(bb.dice[0])
+	bb.face[r1][c1] = rand.Intn(l)
+	bb.face[r2][c2] = rand.Intn(l)
 }
 
 // NewBoggleBoardArray Initialize board from the given 2D character array.
 func NewBoggleBoardArray(board [][]rune) (*BoggleBoard, error) {
 	rows := len(board)
-	bb := make(BoggleBoard, rows)
+	bb := make([][]rune, rows)
 	cols := len(board[0])
 	for i, bc := range board {
 		if len(bc) != cols {
@@ -243,5 +395,5 @@ func NewBoggleBoardArray(board [][]rune) (*BoggleBoard, error) {
 			bb[i][j] = rune(br)
 		}
 	}
-	return &bb, nil
+	return &BoggleBoard{rows: rows, cols: cols, board: bb}, nil
 }

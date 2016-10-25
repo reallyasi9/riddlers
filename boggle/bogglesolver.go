@@ -12,8 +12,6 @@ import (
 
 const minWordLength = 3
 
-var score = []int{0, 0, 0, 1, 1, 2, 3, 5, 11, 11, 11, 11, 11, 11, 11, 11, 11}
-
 type boggleSolver struct {
 	rows       int
 	cols       int
@@ -23,35 +21,61 @@ type boggleSolver struct {
 
 func buildAdjList(rows, cols int) [][]int {
 	ret := make([][]int, rows*cols)
-	for i := 0; i < rows*cols; i++ {
-		ret[i] = make([]int, 0)
-		r := i % cols
-		c := i / cols
-		for deltar := range []int{-1, 0, 1} {
-			targetr := r + deltar
-			if targetr < 0 || targetr >= rows {
-				continue
-			}
-			for deltac := range []int{-1, 0, 1} {
-				targetc := c + deltac
-				if targetc < 0 || targetc >= cols {
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			i := r*cols + c
+			ret[i] = make([]int, 0)
+			for _, deltar := range []int{-1, 0, 1} {
+				targetr := r + deltar
+				if targetr < 0 || targetr == rows {
 					continue
 				}
-				ret[i] = append(ret[i], targetr*cols+targetc)
+				for _, deltac := range []int{-1, 0, 1} {
+					targetc := c + deltac
+					if targetc < 0 || targetc == cols {
+						continue
+					}
+					if deltac == 0 && deltar == 0 {
+						continue
+					}
+					ret[i] = append(ret[i], targetr*cols+targetc)
+				}
 			}
 		}
 	}
 	return ret
 }
 
-func newSolver(rows, cols int, dictfile string) *boggleSolver {
+func buildScore(rows, cols int) []int {
+	score := make([]int, rows*cols+1)
+	for i := 0; i < rows*cols+1; i++ {
+		switch {
+		case i < minWordLength:
+			score[i] = 0
+		case i < 5:
+			score[i] = 1
+		case i == 5:
+			score[i] = 2
+		case i == 6:
+			score[i] = 3
+		case i == 7:
+			score[i] = 5
+		default:
+			score[i] = 11
+		}
+	}
+	return score
+}
+
+func newSolver(rows, cols int, dictfile string) (*boggleSolver, error) {
 	maxWordLength := rows * cols
 
 	adjList := buildAdjList(rows, cols)
+	score := buildScore(rows, cols)
 
 	file, err := os.Open(dictfile)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer file.Close()
 
@@ -65,36 +89,38 @@ func newSolver(rows, cols int, dictfile string) *boggleSolver {
 	}
 
 	if err := scanner.Err(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	solver := boggleSolver{rows: rows,
+	solver := boggleSolver{
+		rows:       rows,
 		cols:       cols,
 		adjList:    adjList,
-		dictionary: dictionary}
-	return &solver
+		dictionary: dictionary,
+	}
+	return &solver, nil
 }
 
-func (bs *boggleSolver) score(bb *BoggleBoard) int {
+func (bs *boggleSolver) score(bb Boggler) (int, *OptimizedTrie) {
 	visited := make([]bool, len(bs.adjList))
 	var results OptimizedTrie
 	var buf bytes.Buffer
-	var score int
+	score := 0
 
 	for p := 0; p < len(bs.adjList); p++ {
 		score += bs.dfs(bb, &bs.dictionary, p, &visited, &results, &buf)
 	}
 
-	return score
+	return score, &results
 }
 
-func (bs *boggleSolver) dfs(bb *BoggleBoard, dictionary *OptimizedTrie, p int, visited *[]bool, results *OptimizedTrie, sb *bytes.Buffer) int {
+func (bs *boggleSolver) dfs(bb Boggler, dictionary *OptimizedTrie, p int, visited *[]bool, results *OptimizedTrie, sb *bytes.Buffer) int {
 
 	if (*visited)[p] {
 		return 0
 	}
 
-	letter := (*bb)[p/bs.rows][p%bs.cols]
+	letter := bb.GetLinear(p)
 	score := 0
 
 	subtrie := dictionary.SubtrieR(letter)
@@ -136,14 +162,19 @@ func main() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 
-	bs := newSolver(4, 4, "dictionaries/dictionary-enable1.txt")
+	bs, err := newSolver(4, 4, "dictionaries/dictionary-enable1.txt")
+	if err != nil {
+		panic(err)
+	}
 
 	topScore := 0
 	i := 0
 	for {
 		i++
-		board := NewBoggleBoardRandom(4, 4)
-		score := bs.score(board)
+		var board Boggler
+		board = NewBoggleBoardRandom(4, 4)
+		// board = newDiceBoard(4, 4, boggle1992)
+		score, _ := bs.score(board)
 		if score > topScore {
 			topScore = score
 			fmt.Printf("Score %d found at iteration %d\n%s\n", score, i, board)

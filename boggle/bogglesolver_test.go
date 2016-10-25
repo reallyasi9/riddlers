@@ -1,37 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 )
 
-func setup(dictfile string) error {
-	file, err := os.Open(dictfile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		dictionary.fill(scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func TestBoggleSolver(t *testing.T) {
-	err := setup(filepath.Join("dictionaries", "dictionary-yawl.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	dictfile := filepath.Join("dictionaries", "dictionary-yawl.txt")
 
 	testPoints := []int{
 		0, 1, 2, 3, 4, 5, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000, 4410, 4527, 4540, 13464, 26539,
@@ -44,7 +20,13 @@ func TestBoggleSolver(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s := board.score()
+		bs, err := newSolver(board.rows, board.cols, dictfile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		s, _ := bs.score(board)
+		//fmt.Printf("%s\n", board)
 		if s != pts {
 			t.Errorf("score %d != expected %d", s, pts)
 		}
@@ -52,14 +34,32 @@ func TestBoggleSolver(t *testing.T) {
 }
 
 func BenchmarkBoggleSolver(b *testing.B) {
-	err := setup(filepath.Join("dictionaries", "enable1.txt"))
+	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
+	bs, err := newSolver(4, 4, dictfile)
 	if err != nil {
 		b.Fatal(err)
 	}
-	board := NewBoggleBoard()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		board.score()
+		b.StopTimer()
+		// board := NewBoggleBoard()
+		board := newDiceBoard(4, 4, boggle1992)
+		b.StartTimer()
+		bs.score(board)
+	}
+}
+
+func BenchmarkBoggleSolverRandom(b *testing.B) {
+	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
+	bs, err := newSolver(4, 4, dictfile)
+	if err != nil {
+		b.Fatal(err)
+	}
+	board := newDiceBoard(4, 4, boggle1992)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		bs.score(board)
 	}
 }
