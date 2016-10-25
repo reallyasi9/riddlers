@@ -223,20 +223,32 @@ func main() {
 	topScore := 0
 	score := 0
 	i := 0
+	j := 0
 	for {
 		i++
+		j++
 		// var board Boggler
 		// board = NewBoggleBoardRandom(4, 4)
 		last := board.Clone()
 		lastScore := score
 
 		board.DictShuffle(bs.adjList, freqs)
-		score, _ := bs.score(board)
-		if score > topScore {
+		score, _ = bs.score(board)
+		if score >= topScore {
 			topScore = score
 			fmt.Printf("Score %d found at iteration %d\n%s\n", score, i, board)
-		} else if score < lastScore {
-			if rand.Float64() > float64(score)/float64(lastScore) {
+			if j == 0 {
+				fmt.Println("┬─┬ ノ(゜-゜ノ)")
+			}
+			j = 0
+		}
+
+		if score < lastScore {
+			if j >= 500000 {
+				fmt.Println("(╯°□°)╯︵ ┻━┻")
+				board = newDiceBoard(4, 4, boggle1992)
+				j = -1
+			} else if rand.Float64() > float64(score)/float64(lastScore) {
 				board = last.(*DiceBoard)
 				score = lastScore
 			}
