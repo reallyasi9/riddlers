@@ -18,6 +18,7 @@ type Boggler interface {
 	Cols() int
 	Get(int, int) rune
 	GetLinear(int) rune
+	Clone() Boggler
 }
 
 // BoggleBoard is a struct that defines a Boggle playspace
@@ -47,6 +48,16 @@ func (bb *BoggleBoard) GetLinear(k int) rune {
 	return bb.board[k/bb.cols][k%bb.cols]
 }
 
+// Clone implements Boggler's interface
+func (bb *BoggleBoard) Clone() Boggler {
+	board := make([][]rune, len(bb.board))
+	for i := range bb.board {
+		board[i] = make([]rune, len(bb.board[i]))
+		copy(board[i], bb.board[i])
+	}
+	return &BoggleBoard{rows: bb.rows, cols: bb.cols, board: board}
+}
+
 // DiceBoard stores the actual dice used to make the board (instead of storing the runes)
 type DiceBoard struct {
 	rows int
@@ -74,6 +85,21 @@ func (bb *DiceBoard) Get(i int, j int) rune {
 // GetLinear implements Boggler's interface
 func (bb *DiceBoard) GetLinear(k int) rune {
 	return bb.Get(k/bb.cols, k%bb.cols)
+}
+
+// Clone implements Boggler's interface
+func (bb *DiceBoard) Clone() Boggler {
+	die := make([][]int, len(bb.die))
+	face := make([][]int, len(bb.face))
+	dice := make([]string, len(bb.dice))
+	copy(dice, bb.dice)
+	for i := range bb.die {
+		die[i] = make([]int, len(bb.die[i]))
+		face[i] = make([]int, len(bb.face[i]))
+		copy(die[i], bb.die[i])
+		copy(face[i], bb.face[i])
+	}
+	return &DiceBoard{rows: bb.rows, cols: bb.cols, die: die, dice: dice, face: face}
 }
 
 // the 16 Boggle dice (1992 version)
