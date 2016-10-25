@@ -157,6 +157,51 @@ func (bs *boggleSolver) dfs(bb Boggler, dictionary *OptimizedTrie, p int, visite
 	return score
 }
 
+func frequencyCount(dictfile string, maxWordLength int) ([][]float64, error) {
+	file, err := os.Open(dictfile)
+	freqs := make([][]float64, 26)
+	if err != nil {
+		return freqs, err
+	}
+	defer file.Close()
+
+	sum := 0
+	counts := make([][]int, 26)
+	for i := range counts {
+		counts[i] = make([]int, 26)
+	}
+
+	scanner := bufio.NewScanner(file)
+	var dictionary OptimizedTrie
+	for scanner.Scan() {
+		w := scanner.Text()
+		if len(w) < minWordLength || len(w) > maxWordLength {
+			continue
+		}
+		w = strings.ToUpper(w)
+		for l := 0; l < len(w)-1; l++ {
+			sum++
+			l1 := w[l] - 'A'
+			l2 := w[l+1] - 'A'
+			counts[l1][l2]++
+			counts[l2][l1]++
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return freqs, err
+	}
+
+	for i, cnt := range counts {
+		freqs[i] = make([]float64, 26)
+		for j, c := range cnt {
+			freqs[i][j] = float64(cnt) / float64(sum)
+		}
+	}
+
+	return freqs, nil
+}
+
 func main() {
 
 	seed := time.Now().UnixNano()
