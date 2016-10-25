@@ -403,9 +403,11 @@ func (bb *DiceBoard) DictShuffle(adjList [][]int, f2 [][]float64) {
 
 	// Using these weights, pick which dice to re-throw
 	var rethrow []int
-	for i, w := range weights {
-		if rand.Float64() < w {
-			rethrow = append(rethrow, i)
+	for len(rethrow) == 0 {
+		for i, w := range weights {
+			if rand.Float64() < w {
+				rethrow = append(rethrow, i)
+			}
 		}
 	}
 
