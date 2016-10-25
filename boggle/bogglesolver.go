@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -202,12 +203,12 @@ func frequencyCount(dictfile string, maxWordLength int) ([][]float64, error) {
 	return freqs, nil
 }
 
-func main() {
+type boardScore struct {
+	score int
+	board []string
+}
 
-	seed := time.Now().UnixNano()
-	rand.Seed(seed)
-
-	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
+func solve(dictfile string, best chan int, brd chan boardScore, flip chan bool) {
 	bs, err := newSolver(4, 4, dictfile)
 	if err != nil {
 		panic(err)
@@ -217,41 +218,73 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// var board Boggler
 	board := newDiceBoard(4, 4, boggle1992)
 
-	topScore := 0
+	topscore := 0
 	score := 0
-	i := 0
-	j := 0
+
 	for {
-		i++
-		j++
-		// var board Boggler
-		// board = NewBoggleBoardRandom(4, 4)
-		last := board.Clone()
-		lastScore := score
+		select {
 
-		board.DictShuffle(bs.adjList, freqs)
-		score, _ = bs.score(board)
-		if score >= topScore {
-			topScore = score
-			if j == 0 {
-				fmt.Println("┬─┬ ノ(゜-゜ノ)")
+		case <-flip:
+			board = newDiceBoard(4, 4, boggle1992)
+
+		case topscore = <-best:
+			// Already did what I wanted to do...
+
+		default:
+			last := board.Clone()
+			lastScore := score
+
+			board.DictShuffle(bs.adjList, freqs)
+			score, _ = bs.score(board)
+
+			if score > topscore {
+				topscore = score
+				brd <- boardScore{score: topscore, board: board.ArrayLinear()}
 			}
-			fmt.Printf("Score %d found at iteration %d\n%s\n", score, i, board)
-			j = 0
-		}
 
-		if score < lastScore {
-			if j >= 500000 {
-				fmt.Println("(╯°□°)╯︵ ┻━┻")
-				board = newDiceBoard(4, 4, boggle1992)
-				j = -1
-			} else if rand.Float64() > float64(score)/float64(lastScore) {
+			if score <= lastScore && rand.Float64() > float64(score)/float64(lastScore) {
 				board = last.(*DiceBoard)
 				score = lastScore
 			}
+		}
+	}
+}
+
+func main() {
+
+	seed := time.Now().UnixNano()
+	rand.Seed(seed)
+	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
+
+	nprocs := runtime.GOMAXPROCS(0)
+	best := make([]chan int, nprocs)
+	brd := make(chan boardScore, nprocs)
+	flip := make(chan bool)
+
+	for i := 0; i < nprocs; i++ {
+		best[i] = make(chan int, 100)
+		go solve(dictfile, best[i], brd, flip)
+	}
+
+	i := 0
+	topscore := 0
+	start := int64(time.Nanosecond) * time.Now().UnixNano() / int64(time.Millisecond)
+
+	for {
+		select {
+		case b := <-brd:
+			if b.score > topscore {
+				topscore = b.score
+				fmt.Printf("%d,%d,%d,%s\n", i, int64(time.Nanosecond)*time.Now().UnixNano()/int64(time.Millisecond)-start, topscore, strings.Join(b.board, ","))
+				for _, bst := range best {
+					bst <- topscore
+				}
+			}
+		case <-time.After(time.Minute * 5):
+			flip <- true
+			i++
 		}
 	}
 }

@@ -19,6 +19,7 @@ type Boggler interface {
 	Get(int, int) rune
 	GetLinear(int) rune
 	Clone() Boggler
+	ArrayLinear() []string
 }
 
 // BoggleBoard is a struct that defines a Boggle playspace
@@ -46,6 +47,18 @@ func (bb *BoggleBoard) Get(i int, j int) rune {
 // GetLinear implements Boggler's interface
 func (bb *BoggleBoard) GetLinear(k int) rune {
 	return bb.board[k/bb.cols][k%bb.cols]
+}
+
+// ArrayLinear implements Boggler's interface
+func (bb *BoggleBoard) ArrayLinear() []string {
+	r := make([]string, bb.Rows()*bb.Cols())
+	for i := range r {
+		r[i] = string(bb.GetLinear(i))
+		if r[i] == "Q" {
+			r[i] = "Qu"
+		}
+	}
+	return r
 }
 
 // Clone implements Boggler's interface
@@ -85,6 +98,18 @@ func (bb *DiceBoard) Get(i int, j int) rune {
 // GetLinear implements Boggler's interface
 func (bb *DiceBoard) GetLinear(k int) rune {
 	return bb.Get(k/bb.cols, k%bb.cols)
+}
+
+// ArrayLinear implements Boggler's interface
+func (bb *DiceBoard) ArrayLinear() []string {
+	r := make([]string, bb.Rows()*bb.Cols())
+	for i := range r {
+		r[i] = string(bb.GetLinear(i))
+		if r[i] == "Q" {
+			r[i] = "Qu"
+		}
+	}
+	return r
 }
 
 // Clone implements Boggler's interface
