@@ -236,10 +236,10 @@ func main() {
 		score, _ = bs.score(board)
 		if score >= topScore {
 			topScore = score
-			fmt.Printf("Score %d found at iteration %d\n%s\n", score, i, board)
 			if j == 0 {
 				fmt.Println("┬─┬ ノ(゜-゜ノ)")
 			}
+			fmt.Printf("Score %d found at iteration %d\n%s\n", score, i, board)
 			j = 0
 		}
 
