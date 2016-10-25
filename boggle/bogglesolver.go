@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -172,7 +173,6 @@ func frequencyCount(dictfile string, maxWordLength int) ([][]float64, error) {
 	}
 
 	scanner := bufio.NewScanner(file)
-	var dictionary OptimizedTrie
 	for scanner.Scan() {
 		w := scanner.Text()
 		if len(w) < minWordLength || len(w) > maxWordLength {
@@ -195,7 +195,7 @@ func frequencyCount(dictfile string, maxWordLength int) ([][]float64, error) {
 	for i, cnt := range counts {
 		freqs[i] = make([]float64, 26)
 		for j, c := range cnt {
-			freqs[i][j] = float64(cnt) / float64(sum)
+			freqs[i][j] = float64(c) / float64(sum)
 		}
 	}
 
@@ -207,18 +207,26 @@ func main() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 
-	bs, err := newSolver(4, 4, "dictionaries/dictionary-enable1.txt")
+	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
+	bs, err := newSolver(4, 4, dictfile)
 	if err != nil {
 		panic(err)
 	}
+
+	freqs, err := frequencyCount(dictfile, 16)
+	if err != nil {
+		panic(err)
+	}
+	// var board Boggler
+	board := newDiceBoard(4, 4, boggle1992)
 
 	topScore := 0
 	i := 0
 	for {
 		i++
-		var board Boggler
-		board = NewBoggleBoardRandom(4, 4)
-		// board = newDiceBoard(4, 4, boggle1992)
+		// var board Boggler
+		// board = NewBoggleBoardRandom(4, 4)
+		board.DictShuffle(bs.adjList, freqs)
 		score, _ := bs.score(board)
 		if score > topScore {
 			topScore = score

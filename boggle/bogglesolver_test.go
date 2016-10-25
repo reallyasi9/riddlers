@@ -39,23 +39,6 @@ func BenchmarkBoggleSolver(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		// board := NewBoggleBoard()
-		board := newDiceBoard(4, 4, boggle1992)
-		b.StartTimer()
-		bs.score(board)
-	}
-}
-
-func BenchmarkBoggleSolverRandom(b *testing.B) {
-	dictfile := filepath.Join("dictionaries", "dictionary-enable1.txt")
-	bs, err := newSolver(4, 4, dictfile)
-	if err != nil {
-		b.Fatal(err)
-	}
 	board := newDiceBoard(4, 4, boggle1992)
 	b.ResetTimer()
 

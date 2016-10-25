@@ -121,11 +121,29 @@ var frequencies = []float64{
 	0.01974, 0.00074,
 }
 
-func inPlaceShuffle(a *[]string) {
-	for i := range *a {
+func throwDice(d []string) []rune {
+	f := make([]rune, len(d))
+	a := make([]string, len(d))
+	copy(a, d)
+	for i := range a {
 		j := rand.Intn(i + 1)
-		(*a)[i], (*a)[j] = (*a)[j], (*a)[i]
+		a[i], a[j] = a[j], a[i]
 	}
+	for i, die := range a {
+		idx := rand.Intn(len(die))
+		f[i] = rune(die[idx])
+	}
+	return f
+}
+
+func copyShuffle(b []int) []int {
+	a := make([]int, len(b))
+	copy(a, b)
+	for i := range a {
+		j := rand.Intn(i + 1)
+		a[i], a[j] = a[j], a[i]
+	}
+	return a
 }
 
 func shuffledInts(n int) []int {
@@ -141,14 +159,12 @@ func shuffledInts(n int) []int {
 }
 
 func newBoggleBoard(rows int, cols int, dice []string) *BoggleBoard {
-	inPlaceShuffle(&dice)
 	board := make([][]rune, rows)
+	faces := throwDice(dice)
 	for i := 0; i < rows; i++ {
 		board[i] = make([]rune, cols)
 		for j := 0; j < cols; j++ {
-			letters := dice[cols*i+j]
-			r := rand.Intn(len(letters))
-			board[i][j] = rune(letters[r])
+			board[i][j] = faces[cols*i+j]
 		}
 	}
 	return &BoggleBoard{rows: rows, cols: cols, board: board}
@@ -263,6 +279,9 @@ func (bb *BoggleBoard) UnmarshalText(text []byte) error {
 			}
 
 			letter := strings.ToUpper(scanner.Text())
+			if letter == "QU" {
+				letter = "Q"
+			}
 
 			if len(letter) != 1 {
 				return fmt.Errorf("invalid character: %s", letter)
@@ -271,11 +290,7 @@ func (bb *BoggleBoard) UnmarshalText(text []byte) error {
 				return fmt.Errorf("invalid character: %s", letter)
 			}
 
-			if letter == "QU" {
-				board[i][j] = 'Q'
-			} else {
-				board[i][j] = rune(letter[0])
-			}
+			board[i][j] = rune(letter[0])
 		}
 	}
 
@@ -344,6 +359,7 @@ func NewBoggleBoardRandom(rows int, cols int) *BoggleBoard {
 // DictShuffle shuffles the dice according to the 2-letter occurance frequencies
 func (bb *DiceBoard) DictShuffle(adjList [][]int, f2 [][]float64) {
 	weights := make([]float64, bb.rows*bb.cols)
+	sum := 0.
 	for i, adjl := range adjList {
 		for _, adj := range adjl {
 			r1 := bb.GetLinear(i)
@@ -351,31 +367,41 @@ func (bb *DiceBoard) DictShuffle(adjList [][]int, f2 [][]float64) {
 			weights[i] += f2[r1-'A'][r2-'A']
 		}
 		weights[i] = 1. - weights[i]/float64(len(adjl))
+		sum += weights[i]
 	}
 
-	i1, err := randomIndex(weights)
-	if err != nil {
-		panic(err)
-	}
-	i2, err := randomIndex(weights)
-	if err != nil {
-		panic(err)
+	// Normalize weights to 1
+	for i := range weights {
+		weights[i] = weights[i] / sum
 	}
 
-	r1 := i1 / bb.Cols()
-	c1 := i1 % bb.Cols()
-	r2 := i2 / bb.Cols()
-	c2 := i2 % bb.Cols()
+	// Using these weights, pick which dice to re-throw
+	var rethrow []int
+	for i, w := range weights {
+		if rand.Float64() < w {
+			rethrow = append(rethrow, i)
+		}
+	}
 
-	// Flip?
-	if rand.Float32() < .5 {
+	// Reassign by shuffling
+	thrown := copyShuffle(rethrow)
+	for i := range rethrow {
+		i1 := rethrow[i]
+		i2 := thrown[i]
+
+		r1 := i1 / bb.Cols()
+		c1 := i1 % bb.Cols()
+		r2 := i2 / bb.Cols()
+		c2 := i2 % bb.Cols()
+
+		// Flip
 		bb.die[r1][c1], bb.die[r2][c2] = bb.die[r2][c2], bb.die[r1][c1]
+
+		// Roll
+		l := len(bb.dice[0])
+		bb.face[r1][c1] = rand.Intn(l)
 	}
 
-	// Roll
-	l := len(bb.dice[0])
-	bb.face[r1][c1] = rand.Intn(l)
-	bb.face[r2][c2] = rand.Intn(l)
 }
 
 // NewBoggleBoardArray Initialize board from the given 2D character array.
