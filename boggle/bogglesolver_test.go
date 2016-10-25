@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -26,44 +28,31 @@ func setup(dictfile string) error {
 }
 
 func TestBoggleSolver(t *testing.T) {
-	err := setup("dictionary-yawl.txt")
+	err := setup(filepath.Join("dictionaries", "dictionary-yawl.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	board, err := ReadBoggleBoard("test/board-points0.txt")
-	if err != nil {
-		t.Fatal(err)
+	testPoints := []int{
+		0, 1, 2, 3, 4, 5, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 2000, 4410, 4527, 4540, 13464, 26539,
 	}
 
-	s := board.score()
-	if s != 0 {
-		t.Errorf("score %d != 0", s)
-	}
+	for _, pts := range testPoints {
+		fn := filepath.Join("test", fmt.Sprintf("board-points%d.txt", pts))
+		board, err := ReadBoggleBoard(fn)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	board, err = ReadBoggleBoard("test/board-points4.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	s = board.score()
-	if s != 4 {
-		t.Errorf("score %d != 4", s)
-	}
-
-	board, err = ReadBoggleBoard("test/board-points4540.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	s = board.score()
-	if s != 4540 {
-		t.Errorf("score %d != 4540", s)
+		s := board.score()
+		if s != pts {
+			t.Errorf("score %d != expected %d", s, pts)
+		}
 	}
 }
 
 func BenchmarkBoggleSolver(b *testing.B) {
-	err := setup("enable1.txt")
+	err := setup(filepath.Join("dictionaries", "enable1.txt"))
 	if err != nil {
 		b.Fatal(err)
 	}
