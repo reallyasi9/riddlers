@@ -4,7 +4,7 @@ What arrangement of any letters on a Boggle board has the most points attainable
 
 Extra credit: What if you limit the hypothetical configurations to only those that are possible using the actual [letter cubes](http://www.bananagrammer.com/2013/10/the-boggle-cube-redesign-and-its-effect.html) included with the game?
 
-(If you need a word list to aid in your quest, feel free to use [the public-domain ENABLE list](https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/dotnetperls-controls/enable1.txt<Paste>) — a modified version of which is used in Words With Friends.)
+(If you need a word list to aid in your quest, feel free to use [the public-domain ENABLE list](https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/dotnetperls-controls/enable1.txt) — a modified version of which is used in Words With Friends.)
 
 [Submit your answer](https://docs.google.com/forms/d/e/1FAIpQLScsrBwAzes_mi2NZjs7NeeE3NGx1-IdbPoBgxVLaSZNfx5Dfw/viewform)
 
