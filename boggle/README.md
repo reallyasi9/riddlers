@@ -7,3 +7,7 @@ Extra credit: What if you limit the hypothetical configurations to only those th
 (If you need a word list to aid in your quest, feel free to use [the public-domain ENABLE list](https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/dotnetperls-controls/enable1.txt<Paste>) — a modified version of which is used in Words With Friends.)
 
 [Submit your answer](https://docs.google.com/forms/d/e/1FAIpQLScsrBwAzes_mi2NZjs7NeeE3NGx1-IdbPoBgxVLaSZNfx5Dfw/viewform)
+
+## Author's note
+
+The solution I use is a re-worked solution from the Coursera course [Algorithms, Part II](https://www.coursera.org/learn/java-data-structures-algorithms-2).  I ported my solution to Go and re-optimized the routines for the new language as best I could in the time I had.  The included word lists are probably in the public domain, and the included Boggle boards were given as test cases for us to check our code.  I am assuming that posting these here is is fair use...
