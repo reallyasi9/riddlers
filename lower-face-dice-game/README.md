@@ -1,4 +1,7 @@
-# Riddler, January 13, 2017
+# [January 13, 2017](https://fivethirtyeight.com/features/how-long-will-it-take-to-blow-out-the-birthday-candles/)
+## How Long Will It Take To Blow Out The Birthday Candles?
+
+### Riddler Classic
 
 Also from Conor, an impromptu gambling problem:
 
@@ -8,6 +11,6 @@ Extra credit: What happens to the amount of money as the number of sides increas
 
 [Submit your answer](https://docs.google.com/forms/d/e/1FAIpQLSeUiwA-5WGiPXDq2liOyMaAQ7US0qAEarV18LUI6an8nfExcg/viewform)
 
-## Author's note
+### Note
 
 The closed-form solution behind this one is not as easy as the Express version.  This code simply simulates the game and demonstrates the answer.

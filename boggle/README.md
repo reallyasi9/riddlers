@@ -1,4 +1,7 @@
-# Riddler, October 21, 2016
+# [October 21, 2016](https://fivethirtyeight.com/features/this-challenge-will-boggle-your-mind/)
+## These Challenges Will Boggle Your Mind
+
+### Riddler Classic
 
 What arrangement of any letters on a Boggle board has the most points attainable? Boggle is played with a 4-by-4 grid of letters. Points are scored by finding strings of letters — connected in any direction, horizontally, vertically or diagonally — that form valid words at least three letters long. Words 3, 4, 5, 6, 7 or 8 or more letters long score 1, 1, 2, 3, 5 and 11 points, respectively. (You can find the full [official rules here](http://www.hasbro.com/common/instruct/boggle.pdf).)
 
@@ -8,6 +11,6 @@ Extra credit: What if you limit the hypothetical configurations to only those th
 
 [Submit your answer](https://docs.google.com/forms/d/e/1FAIpQLScsrBwAzes_mi2NZjs7NeeE3NGx1-IdbPoBgxVLaSZNfx5Dfw/viewform)
 
-## Author's note
+### Note
 
 The solution I use is a re-worked solution from the Coursera course [Algorithms, Part II](https://www.coursera.org/learn/java-data-structures-algorithms-2).  I ported my solution to Go and re-optimized the routines for the new language as best I could in the time I had.  The included word lists are probably in the public domain, and the included Boggle boards were given as test cases for us to check our code.  I am assuming that posting these here is is fair use...

@@ -1,4 +1,7 @@
-# Riddler Express, January 13, 2017
+# [January 13, 2017](https://fivethirtyeight.com/features/how-long-will-it-take-to-blow-out-the-birthday-candles/)
+## How Long Will It Take To Blow Out The Birthday Candles?
+
+### Riddler Express
 
 From Conor McMeel, a birthday party puzzle:
 
@@ -6,6 +9,6 @@ It’s your 30th birthday (congrats, by the way), and your friends bought you a 
 
 [Submit your answer](https://docs.google.com/forms/d/e/1FAIpQLSff0FMNPEM3wVEo-x__FL2tOJZ0FVx-BkCZIDPh6RpZ3-Kvng/viewform)
 
-## Author's note
+### Note
 
-This is pretty simple:  you are splitting the set of remaining candles in half each time on average, so the number of times you can do this on average for N candles will look like log(N).  The notebook here just runs a simulation to demonstrate this.
+The notebook here just runs a simulation to demonstrate the answer rather than providing the closed-form solution.
