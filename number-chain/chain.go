@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type numberNet struct {
@@ -36,37 +37,72 @@ func makeDFSHelper(nnt *numberNet) *dfsHelper {
 	return h
 }
 
+func cheat(n int) int {
+	a := 5 * n / 6
+	if (n+1)%6 != 0 {
+		return a + 1
+	}
+	return a
+}
+
 func main() {
-	n, err := strconv.Atoi(os.Args[1])
+
+	if len(os.Args) < 2 || len(os.Args) > 4 {
+		fmt.Println("Usage:  number-chain MIN MAX | number-chain NUM")
+		os.Exit(1)
+	}
+
+	to, err := strconv.Atoi(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 
-	nn := makeNumberNet(n)
-	fmt.Printf("Multiples and Factors:\n%v\n", nn.adjList)
-
-	dh := makeDFSHelper(nn)
-
-	longest := make([]int, 0)
-	checked := make([]bool, n+1)
-
-	for i := 1; i <= n; i++ {
-		if checked[i] {
-			continue
+	from := to
+	if len(os.Args) >= 3 {
+		to, err = strconv.Atoi(os.Args[2])
+		if err != nil {
+			panic(err)
 		}
-
-		test := dh.dfs(i)
-		if len(test) > len(longest) {
-			longest = make([]int, len(test))
-			copy(longest, test)
-			fmt.Printf("Best so far: %v\n", longest)
-		}
-		checked[i] = true
-		checked[longest[0]] = true // elements are pushed from the front
 	}
 
-	fmt.Printf("Longest found: %v\n", longest)
-	fmt.Printf("(length %d)\n", len(longest))
+	cheater := len(os.Args) == 4
+
+	for n := from; n <= to; n++ {
+		nn := makeNumberNet(n)
+		//fmt.Printf("Multiples and Factors:\n%v\n", nn.adjList)
+
+		dh := makeDFSHelper(nn)
+
+		longest := make([]int, 0)
+		checked := make([]bool, n+1)
+
+		start := time.Now()
+		for i := 1; i <= n; i++ {
+			if checked[i] {
+				continue
+			}
+
+			test := dh.dfs(i)
+			if len(test) > len(longest) {
+				longest = make([]int, len(test))
+				copy(longest, test)
+				//fmt.Printf("Best so far: %v\n", longest)
+			}
+			checked[i] = true
+			checked[longest[0]] = true // elements are pushed from the front
+			//fmt.Printf("checked %v\n", checked)
+			if len(longest) == n {
+				break
+			}
+			if cheater && len(longest) == cheat(n) {
+				break
+			}
+		}
+
+		//fmt.Printf("Longest found: %v\n", longest)
+		//fmt.Printf("(length %d)\n", len(longest))
+		fmt.Printf("%d,%d,%f,%v\n", n, len(longest), time.Since(start).Seconds(), longest)
+	}
 }
 
 func multiplesAndFactors(n int) map[int][]int {
