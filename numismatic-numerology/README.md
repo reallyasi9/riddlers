@@ -14,4 +14,4 @@ I was recently traveling in Europe and struck by the number of coins the euro us
 
 The combination generation code comes from a modified version of [https://github.com/notnil/combos], released under the MIT license.  It is in turn an implementation of the algorithm described at [http://en.wikipedia.org/wiki/Combination].
 
-The coin-making problem's solution is described in detail at [https://en.wikipedia.org/wiki/Change-making_problem#Methods_of_solving].
+The coin-making problem's solution is described in detail at [https://en.wikipedia.org/wiki/Change-making_problem#Methods_of_solving], and the solutions to this particular problem have already been published at [https://doi.org/10.1007/BF02984830].
