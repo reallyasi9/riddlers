@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/armon/go-radix"
+	radix "github.com/armon/go-radix"
 )
 
 var runeScores = map[rune]int{
@@ -104,28 +104,34 @@ func replaceQMs(board []rune) string {
 	return string(board)
 }
 
+type prefixWalker struct {
+	isPrefix bool
+}
+
+func (p *prefixWalker) walk(s string, v interface{}) bool {
+	p.isPrefix = true
+	return false // stop iterating immediately
+}
+
 func scoreBoard(board string) int {
 	score := 0
 	foundTrie := radix.New()
 	i := 0
 	j := 1
 	for i < len(board) {
-		log.Printf("Indices %d %d\n", i, j)
 		sub := board[i:j]
-		log.Printf("Checking %s\n", sub)
-		val, ok := scoreTrie.Get(sub)
-		log.Printf("Found? %v %v\n", ok, val)
-		if ok {
+
+		if val, ok := scoreTrie.Get(sub); ok {
 			if _, alreadyFound := foundTrie.Get(sub); !alreadyFound {
 				// Is a word: score it
-				log.Println("Score!")
 				score += val.(int)
 				foundTrie.Insert(sub, true)
 			}
 		}
 
-		if _, _, isPrefix := scoreTrie.LongestPrefix(sub); isPrefix {
-			log.Printf("%s is a prefix", sub)
+		var walker prefixWalker
+		scoreTrie.WalkPrefix(sub, walker.walk)
+		if walker.isPrefix {
 			// Is a prefix: increase j
 			j++
 			if j > len(board) {
@@ -143,22 +149,52 @@ func scoreBoard(board string) int {
 	return score
 }
 
+func mutateBoard(board []rune) {
+	i := rand.Intn(len(board))
+	j := rand.Intn(len(board))
+	board[i], board[j] = board[j], board[i]
+}
+
+func generateOffspring(p1 []rune, p2 []rune) []rune {
+	child := make([]rune, len(p1))
+	for i := 0; i < len(child); i++ {
+		if rand.Float32() < .5 {
+			child[i] = p1[i]
+		} else {
+			child[i] = p2[i]
+		}
+	}
+	return child
+}
+
+const generations = 1000
+const perGeneration = 1000
+
 func main() {
 	log.Println("Starting")
-
-	log.Printf("Rune Scores: %v\n", runeScores)
 
 	err := buildDictionary(dictionaryURL)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	rawBoard := generateBoard()
-	cleanBoard := replaceQMs(rawBoard)
-	boardScore := scoreBoard(cleanBoard)
-	log.Printf("Sample raw board: %v\n", rawBoard)
-	log.Printf("Sample clean board: %s\n", cleanBoard)
-	log.Printf("Score: %d\n", boardScore)
+	rawBoard1 := generateBoard()
+	rawBoard2 := generateBoard()
+	cleanBoard1 := replaceQMs(rawBoard1)
+	cleanBoard2 := replaceQMs(rawBoard2)
+	boardScore1 := scoreBoard(cleanBoard1)
+	boardScore2 := scoreBoard(cleanBoard2)
+	log.Printf("Sample raw boards: \n%v\n%v\n", rawBoard1, rawBoard2)
+	log.Printf("Sample clean boards: \n%s %d\n%s %d\n", cleanBoard1, boardScore1, cleanBoard2, boardScore2)
+
+	mutateBoard(rawBoard1)
+	cleanMutant1 := replaceQMs(rawBoard1)
+	mutantScore1 := scoreBoard(cleanMutant1)
+	offspring := generateOffspring(rawBoard1, rawBoard2)
+	cleanOffspring := replaceQMs(offspring)
+	offspringScore := scoreBoard(cleanOffspring)
+	log.Printf("Sample mutant: \n%v %d\n", cleanMutant1, mutantScore1)
+	log.Printf("Sample offspring: \n%v %d\n", cleanOffspring, offspringScore)
 
 	log.Println("Done")
 }
