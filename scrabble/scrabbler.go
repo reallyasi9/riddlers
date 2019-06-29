@@ -42,7 +42,7 @@ var generations = flag.Int("generations", 1000, "number of generations")
 var perGeneration = flag.Int("size", 1000, "number of permutations per generation")
 var survivors = flag.Int("survivors", 100, "number of survivors to mutate per generation")
 var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each generation")
-var temperature = flag.Float64("temperature", 100000., "randomness, scaled by score (the larger the temperature, the more random the mutations)")
+var temperature = flag.Float64("temperature", 1000000., "randomness, scaled by score (the larger the temperature, the more random the mutations)")
 var seed = flag.Int64("seed", 8675309, "random seed")
 
 func main() {

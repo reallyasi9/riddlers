@@ -179,6 +179,15 @@ func (b *Board) ScoreWords() []ScoredWord {
 		if val, ok := scoreTrie.Get(sub); ok {
 			if _, alreadyFound := foundTrie.Get(sub); !alreadyFound {
 				// Is a word: score it
+				score := val.(int)
+				// Replace ? values
+				raw := b.Raw[i:j]
+				for k, r := range raw {
+					if r == '?' {
+						score -= runeScores[rune(sub[k])]
+						score += runeScores[r]
+					}
+				}
 				words = append(words, ScoredWord{Word: sub, Score: val.(int)})
 				foundTrie.Insert(sub, true)
 			}
@@ -215,5 +224,5 @@ func (b Board) String() string {
 			builder.WriteRune(r)
 		}
 	}
-	return fmt.Sprintf("%s %d", builder.String(), b.Score)
+	return fmt.Sprintf("%s %d", strings.ToUpper(builder.String()), b.Score)
 }
