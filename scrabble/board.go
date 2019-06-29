@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"strings"
-
-	radix "github.com/armon/go-radix"
 )
 
 // Board represents a permutation of scrabble letters
@@ -18,43 +15,13 @@ type Board struct {
 	Clean string
 	// Score is the score of the board
 	Score int
+	// A trie containing the possible words and scores
+	scoreTrie *ScrabbleTrie
 
 	rng *rand.Rand
 }
 
 var letterCollection = []rune("??aaaaaaaaabbccddddeeeeeeeeeeeeffggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz")
-
-var runeScores = map[rune]int{
-	'?': 0,
-	'e': 1,
-	'a': 1,
-	'i': 1,
-	'o': 1,
-	'n': 1,
-	'r': 1,
-	't': 1,
-	'l': 1,
-	's': 1,
-	'u': 1,
-	'd': 2,
-	'g': 2,
-	'b': 3,
-	'c': 3,
-	'm': 3,
-	'p': 3,
-	'f': 4,
-	'h': 4,
-	'v': 4,
-	'w': 4,
-	'y': 4,
-	'k': 5,
-	'j': 8,
-	'x': 8,
-	'q': 10,
-	'z': 10,
-}
-
-var scoreTrie = radix.New()
 
 // Len returns the number of letters in the scrabble permutation
 func (b *Board) Len() int {
@@ -62,8 +29,8 @@ func (b *Board) Len() int {
 }
 
 // NewBoard creates a new scrabble permutation
-func NewBoard() *Board {
-	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
+func NewBoard(st *ScrabbleTrie) *Board {
+	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63())), scoreTrie: st}
 	copy(b.Raw, letterCollection)
 	b.Shuffle()
 	return b
@@ -90,35 +57,12 @@ func (b *Board) replaceQMs() {
 	b.Clean = builder.String()
 }
 
-type prefixWalker struct {
-	isPrefix bool
-}
-
-func (p *prefixWalker) walk(s string, v interface{}) bool {
-	p.isPrefix = true
-	return false // stop iterating immediately
-}
-
-func scoreWord(word string) (int, error) {
-	score := 0
-	for _, r := range word {
-		value, ok := runeScores[r]
-		if !ok {
-			err := fmt.Errorf("Rune %c not a recognized scrabble letter", r)
-			log.Printf("Error looking up word: %s", err)
-			return 0, err
-		}
-		score += value
-	}
-	return score, nil
-}
-
 // Score scores a scrabble permutation
 func (b *Board) score() {
 	b.Score = 0
 	sw := b.ScoreWords()
 	for _, v := range sw {
-		b.Score += v.Score
+		b.Score += v
 	}
 }
 
@@ -159,53 +103,56 @@ func (b *Board) ReplaceWithOffspring(b1, b2 *Board) {
 	b.score()
 }
 
-// ScoredWord is a word with an associated score
-type ScoredWord struct {
-	Word  string
-	Score int
-}
-
 // ScoreWords finds and scores all the words in the board
-func (b *Board) ScoreWords() []ScoredWord {
-	words := make([]ScoredWord, 0)
-	foundTrie := radix.New()
-	var walker prefixWalker
+func (b *Board) ScoreWords() map[string]int {
+	found := make(map[string]int)
 
-	i := 0
-	j := 1
-	for i < b.Len() {
-		sub := b.Clean[i:j]
+Loop:
+	for i := 0; i < b.Len(); i++ {
 
-		if val, ok := scoreTrie.Get(sub); ok {
-			if _, alreadyFound := foundTrie.Get(sub); !alreadyFound {
-				// Is a word: score it
-				score := val.(int)
-				// Replace ? values
-				raw := b.Raw[i:j]
-				for k, r := range raw {
-					if r == '?' {
-						score -= runeScores[rune(sub[k])]
-						score += runeScores[r]
-					}
-				}
-				words = append(words, ScoredWord{Word: sub, Score: score})
-				foundTrie.Insert(sub, true)
+		var wb strings.Builder
+		scoreModifier := 0
+		r := b.Clean[i]
+
+		branch := b.scoreTrie.Step(r)
+		if branch == nil {
+			continue // That letter doesn't start a word?  Huh.
+		}
+
+		// Modify score
+		if b.Raw[i] == '?' {
+			scoreModifier -= runeScores[r-'a']
+		}
+
+		wb.WriteByte(r)
+		for j := i + 1; j < b.Len(); j++ {
+
+			r = b.Clean[j]
+			branch = branch.Step(r)
+			if branch == nil {
+				// Not a prefix: break out of j loop
+				continue Loop
 			}
-		}
 
-		walker.isPrefix = false
-		scoreTrie.WalkPrefix(sub, walker.walk)
-		if walker.isPrefix {
-			// Is a prefix: increase j
-			j++
-		}
-		if !walker.isPrefix || j > b.Len() {
-			// Scoot forward
-			i++
-			j = i + 1
+			// Modify score
+			if b.Raw[j] == '?' {
+				scoreModifier -= runeScores[r-'a']
+			}
+
+			wb.WriteByte(r)
+			if branch.Score > 0 {
+				// Is a word: add it to the list with a modified score
+				word := wb.String()
+				score := branch.Score + scoreModifier
+				if score > found[word] {
+					found[word] = score
+				}
+			}
+
 		}
 	}
-	return words
+
+	return found
 }
 
 func (b Board) String() string {
