@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"strings"
 
@@ -17,6 +18,8 @@ type Board struct {
 	Clean string
 	// Score is the score of the board
 	Score int
+
+	rng *rand.Rand
 }
 
 var letterCollection = []rune("??aaaaaaaaabbccddddeeeeeeeeeeeeffggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz")
@@ -60,62 +63,40 @@ func (b *Board) Len() int {
 
 // NewBoard creates a new scrabble permutation
 func NewBoard() *Board {
-	b := &Board{Raw: make([]rune, len(letterCollection))}
+	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
 	copy(b.Raw, letterCollection)
-	rand.Shuffle(len(b.Raw), func(i, j int) {
-		b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
-	})
-	b.Clean = replaceQMs(b.Raw)
-	b.score()
+	b.Shuffle()
 	return b
 }
 
-func replaceQMs(board []rune) string {
+// Shuffle shuffles a permutation
+func (b *Board) Shuffle() {
+	b.rng.Shuffle(len(b.Raw), func(i, j int) {
+		b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
+	})
+	b.replaceQMs()
+	b.score()
+}
+
+func (b *Board) replaceQMs() {
 	var builder strings.Builder
-	for _, r := range board {
+	for _, r := range b.Raw {
 		if r == '?' {
-			builder.WriteRune(rune(rand.Int31n('z'-'a') + 'a'))
+			builder.WriteRune(rune(b.rng.Int31n('z'-'a') + 'a'))
 		} else {
 			builder.WriteRune(r)
 		}
 	}
-	return builder.String()
+	b.Clean = builder.String()
 }
 
-// Score scores a scrabble permutation
-func (b *Board) score() {
-	b.Score = 0
-	foundTrie := radix.New()
-	i := 0
-	j := 1
-	for i < b.Len() {
-		sub := b.Clean[i:j]
+type prefixWalker struct {
+	isPrefix bool
+}
 
-		if val, ok := scoreTrie.Get(sub); ok {
-			if _, alreadyFound := foundTrie.Get(sub); !alreadyFound {
-				// Is a word: score it
-				b.Score += val.(int)
-				foundTrie.Insert(sub, true)
-			}
-		}
-
-		var walker prefixWalker
-		scoreTrie.WalkPrefix(sub, walker.walk)
-		if walker.isPrefix {
-			// Is a prefix: increase j
-			j++
-			if j > b.Len() {
-				// No more letters
-				break
-			}
-		} else {
-			// Scoot forward
-			i++
-			if i == j {
-				j++
-			}
-		}
-	}
+func (p *prefixWalker) walk(s string, v interface{}) bool {
+	p.isPrefix = true
+	return false // stop iterating immediately
 }
 
 func scoreWord(word string) (int, error) {
@@ -132,12 +113,107 @@ func scoreWord(word string) (int, error) {
 	return score, nil
 }
 
-func (b Board) String() string {
-	wilds := make([]rune, 0)
-	for i, r := range b.Raw {
-		if r == '?' {
-			wilds = append(wilds, rune(b.Clean[i]))
+// Score scores a scrabble permutation
+func (b *Board) score() {
+	b.Score = 0
+	sw := b.ScoreWords()
+	for _, v := range sw {
+		b.Score += v.Score
+	}
+}
+
+// Mutate the board a bit in place
+func (b *Board) Mutate(temp float64) {
+	exponent := -float64(b.Score) / temp
+	p := math.Exp(exponent)
+
+	b.rng.Shuffle(len(b.Raw), func(i, j int) {
+		if b.rng.Float64() < p {
+			b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
+		}
+	})
+	b.replaceQMs()
+	b.score()
+}
+
+// ReplaceWithMutation replaces this board with a mutated version of the parent
+// FIXME: This makes a potentially illegal board.
+func (b *Board) ReplaceWithMutation(b2 *Board, temperature float64) {
+	copy(b.Raw, b2.Raw)
+	b.Mutate(temperature)
+	b.replaceQMs()
+	b.score()
+}
+
+// ReplaceWithOffspring replaces this board with an offspring based on the parents
+// FIXME: This makes a potentially illegal board.
+func (b *Board) ReplaceWithOffspring(b1, b2 *Board) {
+	for i := 0; i < b.Len(); i++ {
+		if b.rng.Float32() < .5 {
+			b.Raw[i] = b1.Raw[i]
+		} else {
+			b.Raw[i] = b2.Raw[i]
 		}
 	}
-	return fmt.Sprintf("%s (%s) %d", string(b.Raw), string(wilds), b.Score)
+	b.replaceQMs()
+	b.score()
+}
+
+// ScoredWord is a word with an associated score
+type ScoredWord struct {
+	Word  string
+	Score int
+}
+
+// ScoreWords finds and scores all the words in the board
+func (b *Board) ScoreWords() []ScoredWord {
+	words := make([]ScoredWord, 0)
+	foundTrie := radix.New()
+	var walker prefixWalker
+
+	i := 0
+	j := 1
+	for i < b.Len() {
+		sub := b.Clean[i:j]
+
+		if val, ok := scoreTrie.Get(sub); ok {
+			if _, alreadyFound := foundTrie.Get(sub); !alreadyFound {
+				// Is a word: score it
+				words = append(words, ScoredWord{Word: sub, Score: val.(int)})
+				foundTrie.Insert(sub, true)
+			}
+		}
+
+		walker.isPrefix = false
+		scoreTrie.WalkPrefix(sub, walker.walk)
+		if walker.isPrefix {
+			// Is a prefix: increase j
+			j++
+			if j > b.Len() {
+				// No more letters
+				break
+			}
+		} else {
+			// Scoot forward
+			i++
+			if i == j {
+				j++
+			}
+		}
+	}
+	return words
+}
+
+func (b Board) String() string {
+	var builder strings.Builder
+	for i, r := range b.Raw {
+		if r == '?' {
+			builder.WriteRune('[')
+			builder.WriteByte(b.Clean[i])
+			builder.WriteRune(']')
+		} else {
+			builder.WriteRune(r)
+		}
+	}
+	return fmt.Sprintf("%s %d", builder.String(), b.Score)
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -36,49 +38,34 @@ func buildDictionary(url string) error {
 	return nil
 }
 
-type prefixWalker struct {
-	isPrefix bool
-}
-
-func (p *prefixWalker) walk(s string, v interface{}) bool {
-	p.isPrefix = true
-	return false // stop iterating immediately
-}
-
-func mutateBoard(board []rune) {
-	i := rand.Intn(len(board))
-	j := rand.Intn(len(board))
-	board[i], board[j] = board[j], board[i]
-}
-
-func generateOffspring(p1 []rune, p2 []rune) []rune {
-	child := make([]rune, len(p1))
-	for i := 0; i < len(child); i++ {
-		if rand.Float32() < .5 {
-			child[i] = p1[i]
-		} else {
-			child[i] = p2[i]
-		}
-	}
-	return child
-}
-
-const generations = 1000
-const perGeneration = 1000
+var generations = flag.Int("generations", 1000, "number of generations")
+var perGeneration = flag.Int("size", 1000, "number of permutations per generation")
+var survivors = flag.Int("survivors", 100, "number of survivors to mutate per generation")
+var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each generation")
+var temperature = flag.Float64("temperature", 100000., "randomness, scaled by score (the larger the temperature, the more random the mutations)")
+var seed = flag.Int64("seed", 8675309, "random seed")
 
 func main() {
 	log.Println("Starting")
+	flag.Parse()
+	rand.Seed(*seed)
 
 	err := buildDictionary(dictionaryURL)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	gen := MakeGeneration(perGeneration)
+	gen := MakeGeneration(*perGeneration)
+	for i := 0; i < *generations; i++ {
+		gen.Iterate(*survivors, *spawn, *temperature)
+		log.Printf("Generation %d: %v\n", i, gen[0])
+	}
 
 	sort.Sort(sort.Reverse(gen))
-	for i := 0; i < 10; i++ {
-		println(gen[i].String())
+	fmt.Printf("Best permutation found:\n%v\n", gen[0])
+	fmt.Println("Words and scores:")
+	for _, ws := range gen[0].ScoreWords() {
+		fmt.Printf("%s: %d\n", ws.Word, ws.Score)
 	}
 
 	log.Println("Done")
