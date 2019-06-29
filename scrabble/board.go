@@ -188,7 +188,7 @@ func (b *Board) ScoreWords() []ScoredWord {
 						score += runeScores[r]
 					}
 				}
-				words = append(words, ScoredWord{Word: sub, Score: val.(int)})
+				words = append(words, ScoredWord{Word: sub, Score: score})
 				foundTrie.Insert(sub, true)
 			}
 		}
@@ -198,16 +198,11 @@ func (b *Board) ScoreWords() []ScoredWord {
 		if walker.isPrefix {
 			// Is a prefix: increase j
 			j++
-			if j > b.Len() {
-				// No more letters
-				break
-			}
-		} else {
+		}
+		if !walker.isPrefix || j > b.Len() {
 			// Scoot forward
 			i++
-			if i == j {
-				j++
-			}
+			j = i + 1
 		}
 	}
 	return words
