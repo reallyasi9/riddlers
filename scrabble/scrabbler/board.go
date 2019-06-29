@@ -1,8 +1,7 @@
-package main
+package scrabbler
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"strings"
 )
@@ -15,8 +14,6 @@ type Board struct {
 	Clean string
 	// Score is the score of the board
 	Score int
-	// A trie containing the possible words and scores
-	scoreTrie *ScrabbleTrie
 
 	rng *rand.Rand
 }
@@ -29,8 +26,8 @@ func (b *Board) Len() int {
 }
 
 // NewBoard creates a new scrabble permutation
-func NewBoard(st *ScrabbleTrie) *Board {
-	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63())), scoreTrie: st}
+func NewBoard() *Board {
+	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
 	copy(b.Raw, letterCollection)
 	b.Shuffle()
 	return b
@@ -67,25 +64,38 @@ func (b *Board) score() {
 }
 
 // Mutate the board a bit in place
-func (b *Board) Mutate(temp float64) {
-	exponent := -float64(b.Score) / temp
-	p := math.Exp(exponent)
-
-	b.rng.Shuffle(len(b.Raw), func(i, j int) {
-		if b.rng.Float64() < p {
-			b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
+func (b *Board) Mutate() {
+	for i := 0; i < b.Len()-1; i++ {
+		c1 := b.Raw[i]
+		c2 := b.Raw[i+1]
+		// If one of the tiles is a wild, swap with 1/3 chance
+		if c1 == '?' || c2 == '?' {
+			if b.rng.Float64() < 0.33333 {
+				b.Raw[i], b.Raw[i+1] = b.Raw[i+1], b.Raw[i]
+			}
+			continue
 		}
-	})
+		// Swap if the permutation is better
+		c1 -= 'a'
+		c2 -= 'a'
+		bg1 := BigramTrie[c1][c2]
+		bg2 := BigramTrie[c2][c1]
+		p := float64(bg1) / (float64(bg1) + float64(bg2))
+		if b.rng.Float64() < p {
+			b.Raw[i], b.Raw[i+1] = b.Raw[i+1], b.Raw[i]
+			continue
+		}
+	}
+
 	b.replaceQMs()
 	b.score()
 }
 
 // ReplaceWithMutation replaces this board with a mutated version of the parent
-// FIXME: This makes a potentially illegal board.
-func (b *Board) ReplaceWithMutation(b2 *Board, temperature float64) {
+func (b *Board) ReplaceWithMutation(b2 *Board) {
 	copy(b.Raw, b2.Raw)
-	b.Mutate(temperature)
 	b.replaceQMs()
+	b.Mutate()
 	b.score()
 }
 
@@ -114,7 +124,7 @@ Loop:
 		scoreModifier := 0
 		r := b.Clean[i]
 
-		branch := b.scoreTrie.Step(r)
+		branch := ScoreTrie.Step(r)
 		if branch == nil {
 			continue // That letter doesn't start a word?  Huh.
 		}

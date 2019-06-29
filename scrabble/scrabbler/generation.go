@@ -1,4 +1,4 @@
-package main
+package scrabbler
 
 import (
 	"sort"
@@ -13,16 +13,16 @@ func (g Generation) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g Generation) Less(i, j int) bool { return g[i].Score < g[j].Score }
 
 // MakeGeneration makes a new generation of length n
-func MakeGeneration(n int, st *ScrabbleTrie) Generation {
+func MakeGeneration(n int) Generation {
 	gen := make(Generation, n)
 	for i := 0; i < n; i++ {
-		gen[i] = *NewBoard(st)
+		gen[i] = *NewBoard()
 	}
 	return gen
 }
 
 // Iterate iterates the generation, mating the top survivors and mutating the rest randomly
-func (g Generation) Iterate(survivors, spawn int, temperature float64, st *ScrabbleTrie) {
+func (g Generation) Iterate(survivors, spawn int) {
 	// TODO: figure out some way of implementing offspring
 	// offspring := survivors / 2
 	// offspring := 0
@@ -43,7 +43,7 @@ func (g Generation) Iterate(survivors, spawn int, temperature float64, st *Scrab
 	for i := survivors; i < g.Len()-spawn; i++ {
 		wg.Add(1)
 		go func(i int) {
-			g[i].ReplaceWithMutation(&g[i%survivors], temperature)
+			g[i].ReplaceWithMutation(&g[i%survivors])
 			wg.Done()
 		}(i)
 	}
@@ -52,7 +52,7 @@ func (g Generation) Iterate(survivors, spawn int, temperature float64, st *Scrab
 	for i := g.Len() - spawn; i < g.Len(); i++ {
 		wg.Add(1)
 		go func(i int) {
-			g[i] = *NewBoard(st)
+			g[i] = *NewBoard()
 			wg.Done()
 		}(i)
 	}

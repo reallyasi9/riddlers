@@ -1,8 +1,7 @@
-package main
+package scrabbler
 
 import (
 	"log"
-	"math/rand"
 )
 
 // In rune order
@@ -73,50 +72,17 @@ func (s *ScrabbleTrie) Step(b byte) *ScrabbleTrie {
 	return s.children[idx]
 }
 
-// BigramTrie represents a simple table of bigrams for fast frequency lookups
-type BigramTrie [26][26]int
-
-// NormedBigramTrie is a normalized version of BigramTrie
-type NormedBigramTrie [26][26]float64
+// ScrabbleBigrams represents a simple table of bigrams for fast frequency lookups
+type ScrabbleBigrams [26][26]int
 
 // Add a word's bigrams to the trie
-func (t *BigramTrie) Add(word string) {
+func (t *ScrabbleBigrams) Add(word string) {
 	for i := 0; i < len(word)-1; i++ {
 		t.Increment(word[i], word[i+1])
 	}
 }
 
 // Increment adds to the bigram count for bigram a,b
-func (t *BigramTrie) Increment(a, b byte) {
+func (t *ScrabbleBigrams) Increment(a, b byte) {
 	(*t)[a-'a'][b-'a']++
-}
-
-// Normalize makes all the values proper CDFs by first element.  Adds 1 to zeros to make sure those have some probability.
-func (t BigramTrie) Normalize() NormedBigramTrie {
-	var out NormedBigramTrie
-	for i := 0; i < 26; i++ {
-		sum := 0.
-		for j := 0; j < 26; j++ {
-			if t[i][j] == 0 {
-				t[i][j] = 1
-			}
-			sum += float64(t[i][j])
-		}
-		out[i][0] = float64(t[i][0]) / sum
-		for j := 1; j < 26; j++ {
-			out[i][j] = out[i][j-1] + float64(t[i][j])/sum
-		}
-	}
-	return out
-}
-
-// Random picks a random next letter in an MCMC fashion.
-func (n NormedBigramTrie) Random(a byte, rng *rand.Rand) byte {
-	p := rng.Float64()
-	for i, c := range n[a] {
-		if c > p {
-			return byte(i) + 'a'
-		}
-	}
-	return 'z' // just in case
 }

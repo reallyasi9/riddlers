@@ -6,13 +6,14 @@ import (
 	"log"
 	"math/rand"
 	"sort"
+
+	"./scrabbler"
 )
 
 var generations = flag.Int("generations", 1000, "number of generations")
 var perGeneration = flag.Int("size", 1000, "number of permutations per generation")
 var survivors = flag.Int("survivors", 100, "number of survivors to mutate per generation")
-var spawn = flag.Int("spawn", 250, "number of new permutations to spawn each generation")
-var temperature = flag.Float64("temperature", 100., "randomness, scaled by score (the larger the temperature, the more random the mutations)")
+var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each generation")
 var seed = flag.Int64("seed", 8675309, "random seed")
 var report = flag.Int("report", 1000, "report every n generations")
 
@@ -21,11 +22,9 @@ func main() {
 	flag.Parse()
 	rand.Seed(*seed)
 
-	scoreTrie, _ := buildDictionary(dictionaryURL)
-
-	gen := MakeGeneration(*perGeneration, scoreTrie)
+	gen := scrabbler.MakeGeneration(*perGeneration)
 	for i := 0; i < *generations; i++ {
-		gen.Iterate(*survivors, *spawn, *temperature, scoreTrie)
+		gen.Iterate(*survivors, *spawn)
 		if i%*report == 0 {
 			log.Printf("Generation %d: %v\n", i, gen[0])
 		}

@@ -1,7 +1,6 @@
-package main
+package scrabbler
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -18,16 +17,15 @@ func TestScore(t *testing.T) {
 	st.Insert("er")
 	st.Insert("theater")
 
-	b := Board{Raw: []rune{'t', 'h', 'e', 'a', 't', 'e', 'r'}, Clean: "theater", scoreTrie: &st}
+	b := Board{Raw: []rune{'t', 'h', 'e', 'a', 't', 'e', 'r'}, Clean: "theater"}
 	words := b.ScoreWords()
 	for word, score := range words {
-		fmt.Printf("%s: %d\n", word, score)
+		t.Logf("%s: %d\n", word, score)
 	}
 }
 
 func BenchmarkScore(b *testing.B) {
-	st, _ := buildDictionary(dictionaryURL)
-	board := NewBoard(st)
+	board := NewBoard()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		board.ScoreWords()
