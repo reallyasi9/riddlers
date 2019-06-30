@@ -2,6 +2,7 @@ package scrabbler
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 )
@@ -29,7 +30,7 @@ func (b *Board) Len() int {
 func NewBoard() *Board {
 	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
 	copy(b.Raw, letterCollection)
-	b.Shuffle()
+	b.Mutate(math.Inf(1))
 	return b
 }
 
@@ -63,39 +64,23 @@ func (b *Board) score() {
 	}
 }
 
-// Mutate the board a bit in place
-func (b *Board) Mutate() {
-	for i := 0; i < b.Len()-1; i++ {
-		c1 := b.Raw[i]
-		c2 := b.Raw[i+1]
-		// If one of the tiles is a wild, swap with 1/3 chance
-		if c1 == '?' || c2 == '?' {
-			if b.rng.Float64() < 0.33333 {
-				b.Raw[i], b.Raw[i+1] = b.Raw[i+1], b.Raw[i]
-			}
-			continue
-		}
-		// Swap if the permutation is better
-		c1 -= 'a'
-		c2 -= 'a'
-		bg1 := BigramTrie[c1][c2]
-		bg2 := BigramTrie[c2][c1]
-		p := float64(bg1) / (float64(bg1) + float64(bg2))
+// Mutate the board a bit in place.  The higher the temperature, the more random the shuffle.
+func (b *Board) Mutate(temperature float64) {
+	p := math.Exp(-float64(b.Score) / temperature)
+	b.rng.Shuffle(len(b.Raw), func(i, j int) {
 		if b.rng.Float64() < p {
-			b.Raw[i], b.Raw[i+1] = b.Raw[i+1], b.Raw[i]
-			continue
+			b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
 		}
-	}
-
+	})
 	b.replaceQMs()
 	b.score()
 }
 
 // ReplaceWithMutation replaces this board with a mutated version of the parent
-func (b *Board) ReplaceWithMutation(b2 *Board) {
+func (b *Board) ReplaceWithMutation(b2 *Board, temperature float64) {
 	copy(b.Raw, b2.Raw)
 	b.replaceQMs()
-	b.Mutate()
+	b.Mutate(temperature)
 	b.score()
 }
 

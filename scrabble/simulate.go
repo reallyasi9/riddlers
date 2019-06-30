@@ -16,6 +16,7 @@ var survivors = flag.Int("survivors", 100, "number of survivors to mutate per ge
 var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each generation")
 var seed = flag.Int64("seed", 8675309, "random seed")
 var report = flag.Int("report", 1000, "report every n generations")
+var temperature = flag.Float64("temperature", 200., "randomness (the higher the temperature, the more random the shuffles)")
 
 func main() {
 	log.Println("Starting")
@@ -24,7 +25,7 @@ func main() {
 
 	gen := scrabbler.MakeGeneration(*perGeneration)
 	for i := 0; i < *generations; i++ {
-		gen.Iterate(*survivors, *spawn)
+		gen.Iterate(*survivors, *spawn, *temperature)
 		if i%*report == 0 {
 			log.Printf("Generation %d: %v\n", i, gen[0])
 		}

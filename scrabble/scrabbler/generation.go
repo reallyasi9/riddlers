@@ -22,7 +22,7 @@ func MakeGeneration(n int) Generation {
 }
 
 // Iterate iterates the generation, mating the top survivors and mutating the rest randomly
-func (g Generation) Iterate(survivors, spawn int) {
+func (g Generation) Iterate(survivors, spawn int, temperature float64) {
 	// TODO: figure out some way of implementing offspring
 	// offspring := survivors / 2
 	// offspring := 0
@@ -43,7 +43,7 @@ func (g Generation) Iterate(survivors, spawn int) {
 	for i := survivors; i < g.Len()-spawn; i++ {
 		wg.Add(1)
 		go func(i int) {
-			g[i].ReplaceWithMutation(&g[i%survivors])
+			g[i].ReplaceWithMutation(&g[i%survivors], temperature)
 			wg.Done()
 		}(i)
 	}
