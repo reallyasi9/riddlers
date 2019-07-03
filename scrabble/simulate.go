@@ -10,14 +10,13 @@ import (
 	"./scrabbler"
 )
 
-var generations = flag.Int("generations", 1000, "number of generations")
-var perGeneration = flag.Int("size", 1000, "number of permutations per generation")
-var survivors = flag.Int("survivors", 100, "number of survivors to mutate per generation")
-var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each generation")
+var generations = flag.Int("steps", 1000, "number of annealing steps")
+var nSamples = flag.Int("n", 1000, "number of simulations to run")
 var seed = flag.Int64("seed", 8675309, "random seed")
 var report = flag.Int("report", 1000, "report every n generations")
-var temperature = flag.Float64("temperature", 200., "randomness (the higher the temperature, the more random the shuffles)")
-var startingBoard = flag.String("start", "", "starting board")
+var starttemp = flag.Float64("starttemp", 200000., "starting annealing temperature")
+var starttemp = flag.Float64("endtemp", 2., "ending annealing temperature")
+var startingBoard = flag.String("startboard", "", "starting board (defaults to random based on seed)")
 
 func main() {
 	log.Println("Starting")

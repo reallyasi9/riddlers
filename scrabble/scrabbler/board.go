@@ -11,7 +11,7 @@ import (
 // Board represents a permutation of scrabble letters
 type Board struct {
 	// Raw is raw permutation data, wilds included
-	Raw []rune
+	Raw []byte
 	// Clean is the cleaned permutation, wilds replaced with random values
 	Clean string
 	// Score is the score of the board
@@ -20,11 +20,11 @@ type Board struct {
 	rng *rand.Rand
 }
 
-var letterCollection = []rune("??aaaaaaaaabbccddddeeeeeeeeeeeeffggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz")
-var letterCounts map[rune]int
+var letterCollection = []byte("??aaaaaaaaabbccddddeeeeeeeeeeeeffggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz")
+var letterCounts map[byte]int
 
 func init() {
-	letterCounts = make(map[rune]int)
+	letterCounts = make(map[byte]int)
 	for _, r := range letterCollection {
 		letterCounts[r]++
 	}
@@ -37,17 +37,17 @@ func (b *Board) Len() int {
 
 // NewBoard creates a new scrabble permutation
 func NewBoard() *Board {
-	b := &Board{Raw: make([]rune, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
+	b := &Board{Raw: make([]byte, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
 	copy(b.Raw, letterCollection)
-	b.Mutate(math.Inf(1))
+	b.Shuffle()
 	return b
 }
 
-func validateBoard(r []rune) error {
+func validateBoard(r []byte) error {
 	if len(r) != len(letterCollection) {
 		return fmt.Errorf("number of letters in board (%d) does not match the number of tiles (%d)", len(r), len(letterCollection))
 	}
-	myCounts := make(map[rune]int)
+	myCounts := make(map[byte]int)
 	for _, x := range r {
 		myCounts[x]++
 	}
@@ -69,7 +69,7 @@ func validateBoard(r []rune) error {
 func MakeBoard(s string) *Board {
 	s = strings.ToLower(s)
 
-	raw := make([]rune, 0)
+	raw := make([]byte, 0)
 	clean := make([]byte, 0)
 	for i := 0; i < len(s); i++ {
 		if s[i] == '[' {
@@ -90,7 +90,7 @@ func MakeBoard(s string) *Board {
 		}
 
 		clean = append(clean, s[i])
-		raw = append(raw, rune(s[i]))
+		raw = append(raw, s[i])
 	}
 
 	err := validateBoard(raw)
@@ -103,22 +103,13 @@ func MakeBoard(s string) *Board {
 	return b
 }
 
-// Shuffle shuffles a permutation
-func (b *Board) Shuffle() {
-	b.rng.Shuffle(len(b.Raw), func(i, j int) {
-		b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
-	})
-	b.replaceQMs()
-	b.score()
-}
-
 func (b *Board) replaceQMs() {
 	var builder strings.Builder
 	for _, r := range b.Raw {
 		if r == '?' {
-			builder.WriteRune(rune(b.rng.Int31n('z'-'a') + 'a'))
+			builder.WriteByte(byte(b.rng.Intn('z'-'a') + 'a'))
 		} else {
-			builder.WriteRune(r)
+			builder.WriteByte(r)
 		}
 	}
 	b.Clean = builder.String()
@@ -133,38 +124,35 @@ func (b *Board) score() {
 	}
 }
 
-// Mutate the board a bit in place.  The higher the temperature, the more random the shuffle.
-func (b *Board) Mutate(temperature float64) {
-	p := math.Exp(-float64(b.Score) / temperature)
-	b.rng.Shuffle(len(b.Raw), func(i, j int) {
-		if b.rng.Float64() < p {
-			b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
-		}
-	})
-	b.replaceQMs()
-	b.score()
-}
+// Nudge the board a bit in place.  The number of characters randomly shuffled is determined by the temperature.
+func (b *Board) Nudge(temperature float64) {
+	n := int(math.Ceil(math.Exp(-float64(b.Score)/temperature) * float64(b.Len())))
 
-// ReplaceWithMutation replaces this board with a mutated version of the parent
-func (b *Board) ReplaceWithMutation(b2 *Board, temperature float64) {
-	copy(b.Raw, b2.Raw)
-	b.replaceQMs()
-	b.Mutate(temperature)
-	b.score()
-}
-
-// ReplaceWithOffspring replaces this board with an offspring based on the parents
-// FIXME: This makes a potentially illegal board.
-func (b *Board) ReplaceWithOffspring(b1, b2 *Board) {
-	for i := 0; i < b.Len(); i++ {
-		if b.rng.Float32() < .5 {
-			b.Raw[i] = b1.Raw[i]
-		} else {
-			b.Raw[i] = b2.Raw[i]
-		}
+	for i := 0; i < n; i++ {
+		j1 := b.rng.Intn(b.Len())
+		j2 := b.rng.Intn(b.Len())
+		b.Raw[j1], b.Raw[j2] = b.Raw[j2], b.Raw[j1]
 	}
+
 	b.replaceQMs()
 	b.score()
+}
+
+// Shuffle the board in place
+func (b *Board) Shuffle() {
+	b.rng.Shuffle(b.Len(), func(i, j int) {
+		b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
+	})
+
+	b.replaceQMs()
+	b.score()
+}
+
+// ReplaceWithNudge replaces this board with a mutated version of the parent
+func (b *Board) ReplaceWithNudge(b2 *Board, temperature float64) {
+	copy(b.Raw, b2.Raw)
+	b.Score = b2.Score
+	b.Nudge(temperature)
 }
 
 // ScoreWords finds and scores all the words in the board
@@ -223,11 +211,11 @@ func (b Board) String() string {
 	var builder strings.Builder
 	for i, r := range b.Raw {
 		if r == '?' {
-			builder.WriteRune('[')
+			builder.WriteByte('[')
 			builder.WriteByte(b.Clean[i])
-			builder.WriteRune(']')
+			builder.WriteByte(']')
 		} else {
-			builder.WriteRune(r)
+			builder.WriteByte(r)
 		}
 	}
 	return fmt.Sprintf("%s %d", strings.ToUpper(builder.String()), b.Score)

@@ -22,7 +22,7 @@ func MakeGeneration(n int, b *Board, temperature float64) Generation {
 	gen[0] = *b
 	for i := 1; i < n; i++ {
 		gen[i] = *NewBoard()
-		gen[i].ReplaceWithMutation(b, temperature)
+		gen[i].ReplaceWithNudge(b, temperature)
 	}
 	return gen
 }
@@ -49,7 +49,7 @@ func (g Generation) Iterate(survivors, spawn int, temperature float64) {
 	for i := survivors; i < g.Len()-spawn; i++ {
 		wg.Add(1)
 		go func(i int) {
-			g[i].ReplaceWithMutation(&g[i%survivors], temperature)
+			g[i].ReplaceWithNudge(&g[i%survivors], temperature)
 			wg.Done()
 		}(i)
 	}
