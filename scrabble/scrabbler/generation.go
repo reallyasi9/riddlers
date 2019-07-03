@@ -1,6 +1,7 @@
 package scrabbler
 
 import (
+	"log"
 	"sort"
 	"sync"
 )
@@ -12,11 +13,16 @@ func (g Generation) Len() int           { return len(g) }
 func (g Generation) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g Generation) Less(i, j int) bool { return g[i].Score < g[j].Score }
 
-// MakeGeneration makes a new generation of length n
-func MakeGeneration(n int) Generation {
+// MakeGeneration makes a new generation of length n from board b
+func MakeGeneration(n int, b *Board, temperature float64) Generation {
+	if n <= 0 {
+		log.Panicf("number of boards per generation (%d) <= 0", n)
+	}
 	gen := make(Generation, n)
-	for i := 0; i < n; i++ {
+	gen[0] = *b
+	for i := 1; i < n; i++ {
 		gen[i] = *NewBoard()
+		gen[i].ReplaceWithMutation(b, temperature)
 	}
 	return gen
 }

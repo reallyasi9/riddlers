@@ -17,13 +17,20 @@ var spawn = flag.Int("spawn", 500, "number of new permutations to spawn each gen
 var seed = flag.Int64("seed", 8675309, "random seed")
 var report = flag.Int("report", 1000, "report every n generations")
 var temperature = flag.Float64("temperature", 200., "randomness (the higher the temperature, the more random the shuffles)")
+var startingBoard = flag.String("start", "", "starting board")
 
 func main() {
 	log.Println("Starting")
 	flag.Parse()
 	rand.Seed(*seed)
 
-	gen := scrabbler.MakeGeneration(*perGeneration)
+	var board *scrabbler.Board
+	if *startingBoard == "" {
+		board = scrabbler.NewBoard()
+	} else {
+		board = scrabbler.MakeBoard(*startingBoard)
+	}
+	gen := scrabbler.MakeGeneration(*perGeneration, board, *temperature)
 	for i := 0; i < *generations; i++ {
 		gen.Iterate(*survivors, *spawn, *temperature)
 		if i%*report == 0 {
