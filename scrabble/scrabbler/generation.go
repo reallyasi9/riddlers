@@ -2,65 +2,66 @@ package scrabbler
 
 import (
 	"log"
-	"sort"
-	"sync"
+	"math"
+	"math/rand"
+	"time"
 )
 
 // Generation represents a single generation of scrabble permutations
-type Generation []Board
+type Generation struct {
+	Board            *Board
+	Steps            int
+	StartTemperature float64
+	TemperatureStep  float64
+	ReportEvery      int
+	Patience         int
 
-func (g Generation) Len() int           { return len(g) }
-func (g Generation) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
-func (g Generation) Less(i, j int) bool { return g[i].Score < g[j].Score }
-
-// MakeGeneration makes a new generation of length n from board b
-func MakeGeneration(n int, b *Board, temperature float64) Generation {
-	if n <= 0 {
-		log.Panicf("number of boards per generation (%d) <= 0", n)
-	}
-	gen := make(Generation, n)
-	gen[0] = *b
-	for i := 1; i < n; i++ {
-		gen[i] = *NewBoard()
-		gen[i].ReplaceWithNudge(b, temperature)
-	}
-	return gen
+	rng *rand.Rand
 }
 
-// Iterate iterates the generation, mating the top survivors and mutating the rest randomly
-func (g Generation) Iterate(survivors, spawn int, temperature float64) {
-	// TODO: figure out some way of implementing offspring
-	// offspring := survivors / 2
-	// offspring := 0
-	// mutations := g.Len() - survivors - offspring
-	// if mutations < 0 {
-	// 	log.Panicf("survivors (%d) plus offspring (%d) greater than generation size (%d)", survivors, offspring, g.Len())
-	// }
+// NewGeneration creates a new Generation object
+func NewGeneration(steps int, start, step float64, report int, patience int, rng *rand.Rand) *Generation {
+	return &Generation{Board: NewBoard(rng), Steps: steps, StartTemperature: start, TemperatureStep: step, ReportEvery: report, Patience: patience, rng: rng}
+}
 
-	sort.Sort(sort.Reverse(g))
-
-	// Pair off survivors
-	// for i := 0; i < survivors; i += 2 {
-	// 	g[survivors+i/2].ReplaceWithOffspring(&g[i], &g[i+1])
-	// }
-
-	// Clone survivors as mutants
-	var wg sync.WaitGroup
-	for i := survivors; i < g.Len()-spawn; i++ {
-		wg.Add(1)
-		go func(i int) {
-			g[i].ReplaceWithNudge(&g[i%survivors], temperature)
-			wg.Done()
-		}(i)
+// Energy is the probability of transition from state a to state b
+func energy(a, b *Board, t float64) float64 {
+	if b.Score > a.Score {
+		return 1.
 	}
+	return math.Exp(-float64(a.Score) / (float64(b.Score) * t))
+}
 
-	// Spawn new
-	for i := g.Len() - spawn; i < g.Len(); i++ {
-		wg.Add(1)
-		go func(i int) {
-			g[i] = *NewBoard()
-			wg.Done()
-		}(i)
+func copyBoard(to, from *Board) {
+	copy(to.Raw, from.Raw)
+	to.Clean = from.Clean
+	to.Score = from.Score
+}
+
+// Anneal performs the simulated annealing
+func (g *Generation) Anneal() {
+
+	swapBoard := &Board{Raw: make([]byte, g.Board.Len()), Clean: g.Board.Clean, Score: g.Board.Score}
+	copy(swapBoard.Raw, g.Board.Raw)
+
+	lt := math.Log(g.StartTemperature)
+	startTime := time.Now()
+	lastStep := 0
+	for itr := 0; itr < g.Steps; itr++ {
+		swapBoard.Nudge(g.rng)
+		energy := energy(g.Board, swapBoard, math.Exp(lt))
+		if g.rng.Float64() < energy {
+			copyBoard(g.Board, swapBoard)
+			lastStep = itr
+			lt -= g.TemperatureStep
+		} else if itr-lastStep > g.Patience {
+			return
+		} else {
+			// reset
+			copyBoard(swapBoard, g.Board)
+		}
+		if g.ReportEvery > 0 && itr%g.ReportEvery == 0 {
+			log.Printf("%4.0f Sec:  Step %8d  LTmp %8F  Enrg %8F  %s", time.Now().Sub(startTime).Seconds(), itr, lt, energy, g.Board)
+		}
 	}
-	wg.Wait()
 }

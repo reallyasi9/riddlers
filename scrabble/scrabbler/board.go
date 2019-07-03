@@ -3,7 +3,6 @@ package scrabbler
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"strings"
 )
@@ -16,8 +15,6 @@ type Board struct {
 	Clean string
 	// Score is the score of the board
 	Score int
-
-	rng *rand.Rand
 }
 
 var letterCollection = []byte("??aaaaaaaaabbccddddeeeeeeeeeeeeffggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz")
@@ -36,10 +33,10 @@ func (b *Board) Len() int {
 }
 
 // NewBoard creates a new scrabble permutation
-func NewBoard() *Board {
-	b := &Board{Raw: make([]byte, len(letterCollection)), rng: rand.New(rand.NewSource(rand.Int63()))}
+func NewBoard(rng *rand.Rand) *Board {
+	b := &Board{Raw: make([]byte, len(letterCollection))}
 	copy(b.Raw, letterCollection)
-	b.Shuffle()
+	b.Shuffle(rng)
 	return b
 }
 
@@ -98,16 +95,16 @@ func MakeBoard(s string) *Board {
 		log.Panic(err)
 	}
 
-	b := &Board{Raw: raw, Clean: string(clean), rng: rand.New(rand.NewSource(rand.Int63()))}
+	b := &Board{Raw: raw, Clean: string(clean)}
 	b.score()
 	return b
 }
 
-func (b *Board) replaceQMs() {
+func (b *Board) replaceQMs(rng *rand.Rand) {
 	var builder strings.Builder
 	for _, r := range b.Raw {
 		if r == '?' {
-			builder.WriteByte(byte(b.rng.Intn('z'-'a') + 'a'))
+			builder.WriteByte(byte(rng.Intn('z'-'a') + 'a'))
 		} else {
 			builder.WriteByte(r)
 		}
@@ -124,35 +121,23 @@ func (b *Board) score() {
 	}
 }
 
-// Nudge the board a bit in place.  The number of characters randomly shuffled is determined by the temperature.
-func (b *Board) Nudge(temperature float64) {
-	n := int(math.Ceil(math.Exp(-float64(b.Score)/temperature) * float64(b.Len())))
-
-	for i := 0; i < n; i++ {
-		j1 := b.rng.Intn(b.Len())
-		j2 := b.rng.Intn(b.Len())
-		b.Raw[j1], b.Raw[j2] = b.Raw[j2], b.Raw[j1]
-	}
-
-	b.replaceQMs()
+// Nudge the board a bit in place.
+func (b *Board) Nudge(rng *rand.Rand) {
+	n := b.Len()
+	i := rng.Intn(n)
+	j := rng.Intn(n)
+	b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
+	b.replaceQMs(rng)
 	b.score()
 }
 
 // Shuffle the board in place
-func (b *Board) Shuffle() {
-	b.rng.Shuffle(b.Len(), func(i, j int) {
+func (b *Board) Shuffle(rng *rand.Rand) {
+	rng.Shuffle(b.Len(), func(i, j int) {
 		b.Raw[i], b.Raw[j] = b.Raw[j], b.Raw[i]
 	})
-
-	b.replaceQMs()
+	b.replaceQMs(rng)
 	b.score()
-}
-
-// ReplaceWithNudge replaces this board with a mutated version of the parent
-func (b *Board) ReplaceWithNudge(b2 *Board, temperature float64) {
-	copy(b.Raw, b2.Raw)
-	b.Score = b2.Score
-	b.Nudge(temperature)
 }
 
 // ScoreWords finds and scores all the words in the board

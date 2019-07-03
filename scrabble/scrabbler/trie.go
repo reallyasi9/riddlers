@@ -65,11 +65,10 @@ func (s *ScrabbleTrie) recursiveGet(prefix []byte) *ScrabbleTrie {
 
 // Step gets the next branch in the trie if it exists, otherwise returns nil.
 func (s *ScrabbleTrie) Step(b byte) *ScrabbleTrie {
-	idx := b - 'a'
-	if idx >= 26 {
-		log.Panicf("letter '%c' not a scrabble tile", idx)
+	if b > 'z' || b < 'a' {
+		log.Panicf("letter '%c' not a scrabble letter", b)
 	}
-	return s.children[idx]
+	return s.children[b-'a']
 }
 
 // ScrabbleBigrams represents a simple table of bigrams for fast frequency lookups

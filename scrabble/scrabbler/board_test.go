@@ -1,7 +1,7 @@
 package scrabbler
 
 import (
-	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -87,52 +87,18 @@ func rawDifference(expected, got []byte) []rawDiff {
 	return diffs
 }
 
-func TestMutate(t *testing.T) {
-	b1 := NewBoard()
-	r1 := make([]byte, len(b1.Raw))
-	copy(r1, b1.Raw)
-	b1.Nudge(0)
-
-	if diff := rawDifference(r1, b1.Raw); len(diff) != 0 {
-		t.Log("zero-temperature mutation resulted in new board:")
-		for _, d := range diff {
-			t.Logf("Index (%d) Expected '%c' Got '%c'", d.Index, d.Expected, d.Got)
-		}
-		t.Fail()
-	}
-
-	b2 := NewBoard()
-	b2.ReplaceWithNudge(b1, math.Inf(1))
-	if diff := rawDifference(b1.Raw, b2.Raw); len(diff) == 0 {
-		t.Log("infinite-temperature mutation resulted in same board!")
-		t.Fail()
-	}
-
-	// Calculate minimum temperature for board to be identical
-	temperature := 1024.
-
-	for i := 0; i < 100000; i++ {
-		b2.ReplaceWithNudge(b1, temperature)
-		diff := rawDifference(b1.Raw, b2.Raw)
-		if len(diff) == 0 {
-			break
-		}
-		temperature /= 2.
-	}
-
-	t.Logf("minimum temperature for score %d: %f", b1.Score, temperature)
-}
-
 func BenchmarkMutate(b *testing.B) {
-	board := NewBoard()
+	rng := rand.New(rand.NewSource(0))
+	board := NewBoard(rng)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		board.Nudge(200.)
+		board.Nudge(rng)
 	}
 }
 
 func BenchmarkScore(b *testing.B) {
-	board := NewBoard()
+	rng := rand.New(rand.NewSource(0))
+	board := NewBoard(rng)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		board.ScoreWords()
