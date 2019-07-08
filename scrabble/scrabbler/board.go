@@ -192,6 +192,74 @@ Loop:
 	return found
 }
 
+// BoardWord represents a word found in a Board and its corresponding score.
+type BoardWord struct {
+	Word  string
+	Score int
+}
+
+// BoardOrderWords finds and scores all the words in the board and returns them in board-order.
+// This is slower than ScoreWords, so should only be used sparingly.
+func (b *Board) BoardOrderWords() []BoardWord {
+
+	order := make([]BoardWord, 0)
+	found := make(map[string]int)
+
+Loop:
+	for i := 0; i < b.Len(); i++ {
+
+		var wb strings.Builder
+		scoreModifier := 0
+		r := b.Clean[i]
+
+		branch := ScoreTrie.Step(r)
+		if branch == nil {
+			continue // That letter doesn't start a word?  Huh.
+		}
+
+		// Modify score
+		if b.Raw[i] == '?' {
+			scoreModifier -= runeScores[r-'a']
+		}
+
+		wb.WriteByte(r)
+		for j := i + 1; j < b.Len(); j++ {
+
+			r = b.Clean[j]
+			branch = branch.Step(r)
+			if branch == nil {
+				// Not a prefix: break out of j loop
+				continue Loop
+			}
+
+			// Modify score
+			if b.Raw[j] == '?' {
+				scoreModifier -= runeScores[r-'a']
+			}
+
+			wb.WriteByte(r)
+			if branch.Score > 0 {
+				// Is a word: add it to the list with a modified score
+				word := wb.String()
+				score := branch.Score + scoreModifier
+				if score > found[word] {
+					found[word] = score
+					// replace the old, lower-scoring version
+					for ii, ww := range order {
+						if ww.Word == word {
+							order = append(order[:ii], order[ii+1:]...)
+						}
+					}
+					order = append(order, BoardWord{Word: word, Score: score})
+				}
+			}
+
+		}
+	}
+
+	return order
+}
+
 func (b Board) String() string {
 	var builder strings.Builder
 	for i, r := range b.Raw {

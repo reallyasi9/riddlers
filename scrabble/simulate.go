@@ -35,8 +35,8 @@ func main() {
 		for _, b := range flag.Args() {
 			board := scrabbler.MakeBoard(b)
 			fmt.Printf("%s\n", *board)
-			for word, score := range board.ScoreWords() {
-				fmt.Printf("%s: %d\n", word, score)
+			for _, ws := range board.BoardOrderWords() {
+				fmt.Printf("%s: %d\n", ws.Word, ws.Score)
 			}
 		}
 		log.Println("Done")
