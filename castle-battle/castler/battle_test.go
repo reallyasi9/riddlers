@@ -7,6 +7,19 @@ import (
 	"golang.org/x/exp/rand"
 )
 
+func TestCastles(t *testing.T) {
+	d := DefaultSoldierDistribution(100)
+	d.castles[0] = 10
+	c1 := d.Castles()
+
+	d.castles[0] = 0
+	c2 := d.Castles()
+
+	if c1[0] == c2[0] {
+		t.Errorf("expected castles to be different, got %v and %v", c1, c2)
+	}
+}
+
 func TestBattle(t *testing.T) {
 	d1 := NewSoldierDistribution([10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 	score1, score2 := battle(d1, NewSoldierDistribution([10]int{0, 3, 4, 5, 6, 7, 8, 9, 10, 11}))

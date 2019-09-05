@@ -2,12 +2,12 @@ package castler
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
+	"log"
 	"strconv"
 )
 
-func ReadDistributions(f io.Reader) ([]*SoldierDistribution, error) {
+func ReadDistributions(f io.Reader) ([]*SoldierDistribution, []string, error) {
 	// f, err := os.Open(file)
 	// if err != nil {
 	// 	return nil, err
@@ -17,15 +17,15 @@ func ReadDistributions(f io.Reader) ([]*SoldierDistribution, error) {
 
 	r := csv.NewReader(f)
 
-	// throw away the first line
-	_, err := r.Read()
+	// first line is the header
+	header, err := r.Read()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// parse strings into numbers
 	sds := make([]*SoldierDistribution, 0)
-	var nrec [10]int
+	var nrec [NCastles]int
 
 LOOP:
 	for {
@@ -34,14 +34,14 @@ LOOP:
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		for i, r := range record[:10] {
+		for i, r := range record[:NCastles] {
 			var err2 error
 			nrec[i], err2 = strconv.Atoi(r)
 			if err2 != nil || nrec[i] < 0 {
-				fmt.Printf("Smart-ass thought the rules didn't apply: %v\n", record)
+				log.Printf("Smart-ass thought the rules didn't apply: %v\n", record)
 				continue LOOP
 			}
 		}
@@ -49,5 +49,5 @@ LOOP:
 		sds = append(sds, NewSoldierDistribution(nrec))
 	}
 
-	return sds, nil
+	return sds, header, nil
 }
