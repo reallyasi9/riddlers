@@ -1,26 +1,39 @@
 using Colors
-using HypothesisTests
+using Interpolations
+using KernelDensity
+using Distances
 
-function distance(flag1::AbstractArray{<:Colorant}, flag2::AbstractArray{<:Colorant})
-    lab1 = vec(convert(Array{Lab}, flag1))
-    lab2 = vec(convert(Array{Lab}, flag2))
-    p1 = pvalue(KSampleADTest(comp1.(lab1), comp1.(lab2)), nsim=20)
-    p2 = pvalue(KSampleADTest(comp2.(lab1), comp2.(lab2)), nsim=20)
-    p3 = pvalue(KSampleADTest(comp3.(lab1), comp3.(lab2)), nsim=20)
-    return 1 / (p1 + p2 + p3)
+function distance(metric::PreMetric, i1::InterpKDE, i2::InterpKDE, range::AbstractRange)
+    v1 = pdf(i1, range)
+    v2 = pdf(i2, range)
+    gzs = (v1 .> 0) .& (v2 .> 0)
+    metric(v1[gzs], v2[gzs])
 end
 
 aspectratio(a::AbstractMatrix) = size(a, 1) / size(a, 2)
 
 function distances(f::AbstractArray{<:Colorant})
-    ar = aspectratio(f)
+    ar1 = aspectratio(f)
     f = vec(convert(Array{Lab}, f))
-    d = Dict{AbstractString, Real}()
+    l1 = InterpKDE(kde(comp1.(f)))
+    a1 = InterpKDE(kde(comp2.(f)))
+    b1 = InterpKDE(kde(comp3.(f)))
+    metric = BhattacharyyaDist()
+    rl = 0:1:100
+    rab = -100:1:100
+    dists = Dict{AbstractString, Real}()
     for (key, val) in flagsMap
         f2 = flag(key)
-        v = distance(f, f2)
-        v *= (1 + abs(ar - aspectratio(f2)))
-        d[val] = v
+        ar2 = aspectratio(f2)
+        f2 = vec(convert(Array{Lab}, f2))
+        l2 = InterpKDE(kde(comp1.(f2)))
+        a2 = InterpKDE(kde(comp2.(f2)))
+        b2 = InterpKDE(kde(comp3.(f2)))
+
+        d = sqrt(distance(metric, l1, l2, rl) + distance(metric, a1, a2, rab) + distance(metric, b1, b2, rab))
+
+        d *= (1 + abs(ar1 - ar2))
+        dists[val] = d
     end
-    d
+    dists
 end
