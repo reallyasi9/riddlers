@@ -5,28 +5,6 @@ import (
 	"sort"
 )
 
-var deck hand
-var suites []suite
-var suiteSymbol []rune
-var valueSymbol []rune
-
-func init() {
-	deck = make(hand, 52)
-
-	suites = []suite{spades, hearts, diamonds, clubs}
-
-	suiteSymbol = []rune{'\u2660', '\u2661', '\u2662', '\u2663'}
-
-	valueSymbol = []rune{'A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'}
-
-	for _, suite := range suites {
-		for j := 1; j <= 13; j++ {
-			c := makeCard(suite, j)
-			deck[c.Index] = *c
-		}
-	}
-}
-
 func main() {
 
 	hands := generateHands()
@@ -38,20 +16,20 @@ func main() {
 
 }
 
-func generateHands() <-chan hand {
-	handChan := make(chan hand)
-	go func(ch chan<- hand) {
+func generateHands() <-chan Hand {
+	handChan := make(chan Hand)
+	go func(ch chan<- Hand) {
 		defer close(ch)
 		for c1 := 0; c1 < 1; c1++ {
 			for c2 := c1 + 1; c2 < 2; c2++ {
 				for c3 := c2 + 1; c3 < 3; c3++ {
 					for c4 := c3 + 1; c4 < 4; c4++ {
 						for c5 := c4 + 1; c5 < 52; c5++ {
-							ch <- hand{deck[c1],
-								deck[c2],
-								deck[c3],
-								deck[c4],
-								deck[c5]}
+							ch <- Hand{StandardDeck[c1],
+								StandardDeck[c2],
+								StandardDeck[c3],
+								StandardDeck[c4],
+								StandardDeck[c5]}
 						}
 					}
 				}
@@ -61,9 +39,9 @@ func generateHands() <-chan hand {
 	return handChan
 }
 
-func gimmeNuts(hands <-chan hand) <-chan hand {
-	bestChan := make(chan hand)
-	go func(in <-chan hand, out chan<- hand) {
+func gimmeNuts(hands <-chan Hand) <-chan Hand {
+	bestChan := make(chan Hand)
+	go func(in <-chan Hand, out chan<- Hand) {
 		defer close(bestChan)
 		for h := range in {
 			for _, c := range h {
@@ -77,9 +55,9 @@ func gimmeNuts(hands <-chan hand) <-chan hand {
 	return bestChan
 }
 
-func findStraightFlushNuts(h hand) ([]hand, bool) {
-	best := make(hand, 0)
-	nuts := make([]hand, 0)
+func findStraightFlushNuts(h Hand) ([]Hand, bool) {
+	best := make(Hand, 0)
+	nuts := make([]Hand, 0)
 	found := false
 
 	// First look for ace-high
