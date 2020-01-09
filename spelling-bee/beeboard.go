@@ -76,6 +76,7 @@ func main() {
 		}
 	}
 
+	fmt.Printf("\nSolution found:\n%d: %v\n", bestScore, *bestBoard)
 	for _, word := range words {
 		score, _ := bestBoard.Score(word)
 		if score > 0 {
