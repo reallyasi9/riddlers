@@ -35,11 +35,22 @@ func main() {
 		words = append(words, word)
 	}
 
-	boards, err := NewBoards("abcdefghijklmnopqrtuvwxyz")
-	if err != nil {
-		log.Fatal(err)
+	single := flag.Arg(0) != ""
+	var boards []*Board
+	if single {
+		board, err := NewBoard(flag.Arg(0))
+		if err != nil {
+			log.Fatal(err)
+		}
+		boards = []*Board{board}
+		log.Printf("checking board %s", board)
+	} else {
+		boards, err := NewBoards("abcdefghijklmnopqrtuvwxyz")
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("found %d boards", len(boards))
 	}
-	log.Printf("found %d boards", len(boards))
 
 	bestScore := 0
 	if flagMin {

@@ -2,27 +2,53 @@ package main
 
 import (
 	"fmt"
-	"github.com/gonum/stat/combin"
 	"strings"
+	"unicode"
+
+	"github.com/gonum/stat/combin"
 )
 
 // A Board represents a spelling bee hexagramatical board.
 type Board struct {
 	center  rune
-	letters map[rune]bool
+	letters map[rune]struct{}
+}
+
+// NewBoard creates a board object from a string of letters.
+func NewBoard(letters string) (*Board, error) {
+	if len(letters) < 7 {
+		return nil, fmt.Errorf("board needs at least seven letters")
+	}
+	l := make(map[rune]struct{})
+	var center rune
+	for _, letter := range letters {
+		lower := unicode.ToLower(letter)
+		if lower == 's' {
+			return nil, fmt.Errorf("board cannot contain letter 's'")
+		}
+		if lower != letter {
+			center = lower
+		}
+		l[lower] = struct{}{}
+	}
+	if len(l) < 7 {
+		return nil, fmt.Errorf("board needs seven unique letters")
+	}
+	return &Board{center: center, letters: l}, nil
 }
 
 // NewBoards creates as many unique boards from a word as there are pangrams.
 func NewBoards(word string) ([]*Board, error) {
+	word = strings.ToLower(word)
 	if len(word) < 7 {
 		return nil, fmt.Errorf("board needs at least seven letters")
 	}
-	letters := make(map[rune]bool)
+	letters := make(map[rune]struct{})
 	for _, letter := range word {
 		if letter == 's' {
 			return nil, fmt.Errorf("board cannot contain letter 's'")
 		}
-		letters[letter] = true
+		letters[letter] = struct{}{}
 	}
 	if len(letters) < 7 {
 		return nil, fmt.Errorf("board needs at least one pangram")
@@ -38,9 +64,9 @@ func NewBoards(word string) ([]*Board, error) {
 	comb := make([]int, 7)
 	for gen.Next() {
 		gen.Combination(comb)
-		l := make(map[rune]bool)
+		l := make(map[rune]struct{})
 		for _, i := range comb {
-			l[unique[i]] = true
+			l[unique[i]] = struct{}{}
 		}
 		for i := 0; i < 7; i++ {
 			boards = append(boards, &Board{center: unique[comb[i]], letters: l})
