@@ -134,6 +134,24 @@ function ambiguities(w::Wordle, target::Word, gs::Vector{Word})
     1 / length(possible)
 end
 
+struct ComboProb
+    combo::Vector{Word}
+    prob::Float64
+end
+
+combination(c::ComboProb) = c.combo
+probability(c::ComboProb) = c.prob
+
+function process_comboprobs(jobs::Channel{ComboProb}, results::Channel{ComboProb})
+    best = ComboProb(Word[], 0.)
+    for combo in jobs
+        if probability(combo) > probability(best)
+            best = combo
+            put!(results, best)
+        end
+    end
+end
+
 function main(args=ARGS)
     a = parse_arguments(args)
 
@@ -150,15 +168,28 @@ function main(args=ARGS)
     best_prob = 0.
     p = Progress(ncombs; showspeed=true)
     solutions = Word.(solutions)
+
+    comboprobs = Channel{ComboProb}(100)
+    results = Channel{ComboProb}(Inf)
+    @async process_comboprobs(comboprobs, results)
+
     Threads.@threads for combo in combs
         prob = mapreduce(x -> ambiguities(wordle, x, combo), +, solutions)
+        put!(comboprobs, ComboProb(combo, prob))
         if prob > best_prob
             best_prob = prob
             best_combo = combo
         end
         next!(p; showvalues=[(:best_combo,join(best_combo, " + ")), (:prob, best_prob/length(solutions))])
     end
-    return best_combo, best_prob
+
+    close(comboprobs)
+    # deal with the history of the process to make sure we have the correct values
+    for result in results
+        println("$(join(combination(result), " + ")) => $(probability(result))")
+    end
+
+    return
 end
 
 # combs, ambicount = main();
