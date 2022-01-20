@@ -55,7 +55,8 @@ function Base.isdisjoint(x::Word, y::Word)
 end
 
 function Base.isdisjoint(x::Vector{Word})
-    return isempty(intersect(letters.(x)))
+    isempty(x) && return true
+    return length(unique(mapreduce(y->collect(letters(y)), vcat, x))) == length(x)
 end
 
 struct Wordle
@@ -142,14 +143,31 @@ end
 combination(c::ComboProb) = c.combo
 probability(c::ComboProb) = c.prob
 
-function process_comboprobs(jobs::Channel{ComboProb}, results::Channel{ComboProb})
-    best = ComboProb(Word[], 0.)
-    for combo in jobs
+const BEST_COMBOPROB_SO_FAR = ComboProb(Word[], 0.)
+const WORDS = Channel{Vector{Word}}(100)
+const UNFILTERED_COMBOPROBS = Channel{ComboProb}(100)
+const FILTERED_COMBOPROBS = Channel{ComboProb}(Inf)
+
+function comboprob_filter()
+    for combo in UNFILTERED_COMBOPROBS
         if probability(combo) > probability(best)
-            best = combo
-            put!(results, best)
+            BEST_COMBOPROB_SO_FAR = combo
+            put!(FILTERED_COMBOPROBS, combo)
         end
     end
+    close(FILTERED_COMBOPROBS)
+end
+
+function calculate_comboprob(wordle::Wordle, solutions::Vector{Word})
+    for combo in WORDS
+        if !isdisjoint(combo)
+            continue
+        end
+        prob = mapreduce(x -> ambiguities(wordle, x, combo), +, solutions)
+        comboprob = ComboProb(combo, prob)
+        put!(UNFILTERED_COMBOPROBS, comboprob)
+    end
+    close(UNFILTERED_COMBOPROBS)
 end
 
 function main(args=ARGS)
@@ -160,33 +178,28 @@ function main(args=ARGS)
     guessables = Word.(readlines(a["guessables"]))
 
     wordle = Wordle(solutions)
-    combs = collect(combinations(guessables, a["guesses"]))
-    filter!(isdisjoint, combs)
-    shuffle!(combs)
+    combs = combinations(guessables, a["guesses"])
     ncombs = length(combs)
     # ncombs = 100
-    best_combo = first(combs)
-    best_prob = 0.
     p = Progress(ncombs; showspeed=true)
     solutions = Word.(solutions)
 
-    comboprobs = Channel{ComboProb}(100)
-    results = Channel{ComboProb}(Inf)
-    @async process_comboprobs(comboprobs, results)
+    for i in 1:Threads.nthreads()
+        @info "We starting this?" i
+        @async errormonitor(calculate_comboprob($wordle, $solutions))
+    end
+    @info "Is this starting?"
+    @async errormonitor(comboprob_filter())
 
-    Threads.@threads for combo in combs
-        prob = mapreduce(x -> ambiguities(wordle, x, combo), +, solutions)
-        put!(comboprobs, ComboProb(combo, prob))
-        if prob > best_prob
-            best_prob = prob
-            best_combo = combo
-        end
-        next!(p; showvalues=[(:best_combo,join(best_combo, " + ")), (:prob, best_prob/length(solutions))])
+    for combo in combs
+        println("trying $combo")
+        put!(WORDS, combo)
+        next!(p; showvalues=[(:best_combo,join(combination(BEST_COMBOPROB_SO_FAR), " + ")), (:prob, probability(BEST_COMBOPROB_SO_FAR)/length(solutions))])
     end
 
-    close(comboprobs)
+    close(WORDS)
     # deal with the history of the process to make sure we have the correct values
-    for result in results
+    for result in FILTERED_COMBOPROBS
         println("$(join(combination(result), " + ")) => $(probability(result))")
     end
 
