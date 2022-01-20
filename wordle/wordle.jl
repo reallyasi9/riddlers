@@ -12,6 +12,10 @@ function parse_arguments(args=ARGS)
         "guessables"
             help = "file containing guessable words"
             required = true
+        "--guesses,-g"
+            help = "(exact) number of guesses to optimize"
+            arg_type = Int
+            default = 2
     end
 
     parsed_args = parse_args(args, s)
@@ -26,6 +30,8 @@ end
 function Word(word::String)
     @inbounds Word((word[1], word[2], word[3], word[4], word[5]) .- '`')
 end
+
+letters(w::Word) = w.letters
 
 function Base.show(io::IO, x::Word)
     show(io, String(collect(x.letters .+ '`')))
@@ -47,6 +53,11 @@ end
 function Base.isdisjoint(x::Word, y::Word)
     return isdisjoint(x.letters, y.letters)
 end
+
+function Base.isdisjoint(x::Vector{Word})
+    return isempty(intersect(letters.(x)))
+end
+
 struct Wordle
     posmap::NTuple{5,NTuple{26,BitSet}}
     lettermap::NTuple{26,BitSet}
@@ -130,8 +141,8 @@ function main(args=ARGS)
     guessables = Word.(readlines(a["guessables"]))
 
     wordle = Wordle(solutions)
-    combs = collect(combinations(guessables, 2))
-    filter!(x->isdisjoint(x...), combs)
+    combs = collect(combinations(guessables, a["guesses"]))
+    filter!(isdisjoint, combs)
     shuffle!(combs)
     ncombs = length(combs)
     # ncombs = 100
@@ -145,7 +156,7 @@ function main(args=ARGS)
             best_prob = prob
             best_combo = combo
         end
-        next!(p; showvalues=[(:best_combo,join(best_combo, " + ")), (:prob,best_prob/length(solutions))])
+        next!(p; showvalues=[(:best_combo,join(best_combo, " + ")), (:prob, best_prob/length(solutions))])
     end
     return best_combo, best_prob
 end
