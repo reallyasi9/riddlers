@@ -12,7 +12,7 @@ function parse_arguments(args=ARGS)
         "guessables"
             help = "file containing guessable words"
             required = true
-        "--guesses,-g"
+        "--guesses","-g"
             help = "(exact) number of guesses to optimize"
             arg_type = Int
             default = 2
@@ -154,6 +154,7 @@ end
 
 function main(args=ARGS)
     a = parse_arguments(args)
+    @info "starting" args=args parsed_args=a
 
     solutions = readlines(a["solutions"])
     guessables = Word.(readlines(a["guessables"]))
