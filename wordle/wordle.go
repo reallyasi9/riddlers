@@ -15,8 +15,9 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 )
 
-var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize")
+var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize after starting guesses")
 var forceDisjoint = flag.Bool("d", false, "force all words in guess to have unique letters, including forbidding guesses to have duplicate letters")
+var startingWords = flag.String("s", "", "comma-separated list of starting guesses")
 
 const alphabetSize = 26
 const wordSize = 5
@@ -33,6 +34,10 @@ func makeWord(bs []byte) Word {
 		w[i] = b - firstLetter
 	}
 	return w
+}
+
+func makeWordFromString(s string) Word {
+	return makeWord([]byte(s))
 }
 
 func (w Word) String() string {
@@ -134,6 +139,7 @@ func (w *Wordle) Ambiguities(guesses []Word, soln Word) bitmap.Bitmap {
 type ComboProb struct {
 	Combination []Word
 	Probability float64
+	Deduced     int
 }
 
 func (cp ComboProb) String() string {
@@ -142,7 +148,7 @@ func (cp ComboProb) String() string {
 		words[i] = w.String()
 	}
 	joined := strings.Join(words, " + ")
-	return fmt.Sprintf("%s = %f", joined, cp.Probability)
+	return fmt.Sprintf("%s = %f (%d deduced)", joined, cp.Probability, cp.Deduced)
 }
 
 func main() {
@@ -164,19 +170,21 @@ func main() {
 	}
 	defer guessFile.Close()
 
+	start := []Word{}
+	for _, word := range strings.Split(*startingWords, ",") {
+		start = append(start, makeWordFromString(word))
+	}
+
 	solns := readWords(solnFile)
 	guesses := readWords(guessFile)
 
 	wordle := NewWordle(solns)
 
-	combinations := wordCombinations(guesses, *nGuesses)                              // produce combinations
+	combinations := wordCombinations(guesses, start, *nGuesses)                       // produce combinations
 	unfiltered := calculateProbabilities(wordle, solns, *forceDisjoint, combinations) // multi-thread calculate solutions
 	filtered := filterBest(unfiltered)                                                // merge
 
-	nsolns := float64(len(solns))
 	for cp := range filtered {
-		// Normalize by number of solutions possible
-		cp.Probability /= nsolns
 		log.Print(cp)
 	}
 }
@@ -191,6 +199,7 @@ func calculateProbabilities(wordle *Wordle, solns []Word, disjoint bool, in <-ch
 			return disjointLetters(words)
 		}
 	}
+	nsolns := float64(len(solns))
 	go func() {
 		var wg sync.WaitGroup
 		for words := range in {
@@ -203,11 +212,15 @@ func calculateProbabilities(wordle *Wordle, solns []Word, disjoint bool, in <-ch
 				}
 
 				prob := 0.
+				deduced := 0
 				for _, solution := range solns {
 					ambiguities := wordle.Ambiguities(words, solution).Count()
+					if ambiguities == 1 {
+						deduced++
+					}
 					prob += 1. / float64(ambiguities)
 				}
-				out <- ComboProb{Combination: words, Probability: prob}
+				out <- ComboProb{Combination: words, Probability: prob / nsolns, Deduced: deduced}
 			}(words)
 		}
 		wg.Wait()
@@ -219,7 +232,7 @@ func calculateProbabilities(wordle *Wordle, solns []Word, disjoint bool, in <-ch
 func filterBest(in <-chan ComboProb) <-chan ComboProb {
 	out := make(chan ComboProb, 1000)
 	go func() {
-		best := ComboProb{Combination: make([]Word, 0), Probability: 0}
+		best := ComboProb{Combination: make([]Word, 0)}
 		for cp := range in {
 			if cp.Probability > best.Probability {
 				if len(best.Combination) != len(cp.Combination) {
@@ -227,6 +240,7 @@ func filterBest(in <-chan ComboProb) <-chan ComboProb {
 				}
 				copy(best.Combination, cp.Combination)
 				best.Probability = cp.Probability
+				best.Deduced = cp.Deduced
 				out <- cp
 			}
 		}
@@ -260,7 +274,10 @@ func disjointLetters(ws []Word) bool {
 	return true
 }
 
-func wordCombinations(ws []Word, n int) <-chan []Word {
+func wordCombinations(ws []Word, start []Word, n int) <-chan []Word {
+	if len(start)+n > 6 {
+		panic("a maximum of only 6 guesses are allowed!")
+	}
 	out := make(chan []Word, 1000)
 	go func() {
 		numComb := combin.Binomial(len(ws), n)
@@ -269,9 +286,10 @@ func wordCombinations(ws []Word, n int) <-chan []Word {
 		comb := make([]int, n)
 		for gen.Next() {
 			gen.Combination(comb)
-			words := make([]Word, n)
+			words := make([]Word, n+len(start))
+			copy(words, start)
 			for i, j := range comb {
-				words[i] = ws[j]
+				words[i+len(start)] = ws[j]
 			}
 			out <- words
 			bar.Increment()
