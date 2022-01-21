@@ -10,125 +10,76 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cheggaaa/pb/v3"
+	"github.com/kelindar/bitmap"
 	"gonum.org/v1/gonum/stat/combin"
 )
 
 var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize")
 
-type Word [5]byte
+const alphabetSize = 26
+const wordSize = 5
+const firstLetter = 'a'
+
+type Word [wordSize]byte
 
 func makeWord(bs []byte) Word {
 	var w Word
 	for i, b := range bs {
-		if i > 4 {
+		if i >= wordSize {
 			break
 		}
-		w[i] = b - 'a'
+		w[i] = b - firstLetter
 	}
 	return w
 }
 
 func (w Word) String() string {
-	b := make([]byte, 5)
-	for i := 0; i < 5; i++ {
-		b[i] = w[i] + 'a'
+	b := make([]byte, wordSize)
+	for i := 0; i < wordSize; i++ {
+		b[i] = w[i] + firstLetter
 	}
 	return string(b)
 }
 
-type WordSet struct {
-	set map[Word]struct{}
-}
-
-func NewWordSet(words ...Word) *WordSet {
-	set := make(map[Word]struct{})
-	for _, word := range words {
-		set[word] = struct{}{}
-	}
-	return &WordSet{set: set}
-}
-
-func (s *WordSet) Len() int {
-	return len(s.set)
-}
-
-func (s *WordSet) Clone() *WordSet {
-	set := make(map[Word]struct{})
-	for word := range s.set {
-		set[word] = struct{}{}
-	}
-	return &WordSet{set: set}
-}
-
-func (s *WordSet) Insert(w Word) {
-	s.set[w] = struct{}{}
-}
-
-func (s *WordSet) Intersection(other *WordSet) *WordSet {
-	out := make(map[Word]struct{})
-	for val := range s.set {
-		if _, exists := other.set[val]; exists {
-			out[val] = struct{}{}
-		}
-	}
-	return &WordSet{set: out}
-}
-
-// KeepIntersection is a very special function: it will either drop the non-intersecting values from s that are not in other, or it will replace s with other if s is empty.
-func (s *WordSet) KeepIntersection(other *WordSet) {
-	if len(s.set) == 0 {
-		for word := range other.set {
-			s.set[word] = struct{}{}
-		}
-		return
-	}
-	for val := range s.set {
-		if _, exists := other.set[val]; !exists {
-			delete(s.set, val)
-		}
-	}
-}
-
 type Wordle struct {
-	byLetter         map[byte]*WordSet
-	byLetterPosition [5]map[byte]*WordSet
-	byMissing        map[byte]*WordSet
+	words []Word
+
+	wordsContainingLetter           [alphabetSize]bitmap.Bitmap
+	wordsContainingLetterByPosition [wordSize][alphabetSize]bitmap.Bitmap
+	wordsNotContainingLetter        [alphabetSize]bitmap.Bitmap
 }
 
 func NewWordle(words []Word) *Wordle {
-	letters := make(map[byte]*WordSet)
-	var matches [5]map[byte]*WordSet
-	misses := make(map[byte]*WordSet)
+	ws := make([]Word, len(words))
+	copy(ws, words)
 
-	for l := 0; l < 5; l++ {
-		matches[l] = make(map[byte]*WordSet)
-	}
-	for i := byte(0); i < 26; i++ {
-		letters[i] = NewWordSet()
-		misses[i] = NewWordSet()
-		for l := 0; l < 5; l++ {
-			matches[l][i] = NewWordSet()
-		}
-	}
-
-	for _, word := range words {
-		var i byte
-		for i = 0; i < 26; i++ {
+	wordle := Wordle{words: ws}
+	for i, word := range words {
+		for letter := byte(0); letter < alphabetSize; letter++ {
 			found := false
-			for l, b := range word {
-				if b == i {
-					matches[l][b].Insert(word)
-					letters[b].Insert(word)
+			for pos, character := range word {
+				if character == letter {
+					wordle.wordsContainingLetterByPosition[pos][character].Set(uint32(i))
+					wordle.wordsContainingLetter[character].Set(uint32(i))
 					found = true
 				}
 			}
 			if !found {
-				misses[i].Insert(word)
+				wordle.wordsNotContainingLetter[letter].Set(uint32(i))
 			}
 		}
 	}
 
-	return &Wordle{byLetter: letters, byLetterPosition: matches, byMissing: misses}
+	return &wordle
+}
+
+func (w *Wordle) GetWord(i int) Word {
+	return w.words[i]
+}
+
+func (w *Wordle) NWords() int {
+	return len(w.words)
 }
 
 const (
@@ -157,20 +108,23 @@ OUTER:
 	return status
 }
 
-func (w *Wordle) Ambiguities(guesses []Word, soln Word) *WordSet {
-	possible := NewWordSet()
+func (w *Wordle) Ambiguities(guesses []Word, soln Word) bitmap.Bitmap {
+	var possible bitmap.Bitmap
+	possible.Grow(uint32(len(w.words)))
+	possible.Ones()
+
 	for _, guess := range guesses {
 		status := guess.Compare(soln)
 		for letter, stat := range status {
 			switch stat {
 			case CORRECT:
-				possible.KeepIntersection(w.byLetterPosition[letter][guess[letter]])
+				possible.And(w.wordsContainingLetterByPosition[letter][guess[letter]])
 			case PRESENT:
-				possible.KeepIntersection(w.byLetter[guess[letter]])
+				possible.And(w.wordsContainingLetter[guess[letter]])
+			case MISSING:
+				possible.And(w.wordsNotContainingLetter[guess[letter]])
 			default:
-				possible.KeepIntersection(w.byMissing[guess[letter]])
 			}
-
 		}
 	}
 	return possible
@@ -181,7 +135,7 @@ type ComboProb struct {
 	Probability float64
 }
 
-func (cp *ComboProb) String() string {
+func (cp ComboProb) String() string {
 	words := make([]string, len(cp.Combination))
 	for i, w := range cp.Combination {
 		words[i] = w.String()
@@ -191,6 +145,7 @@ func (cp *ComboProb) String() string {
 }
 
 func main() {
+
 	flag.Parse()
 	if flag.NArg() != 2 {
 		log.Fatal("wordle requres two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses")
@@ -217,13 +172,16 @@ func main() {
 	unfiltered := calculateProbabilities(wordle, solns, combinations) // multi-thread calculate solutions
 	filtered := filterBest(unfiltered)                                // merge
 
+	nsolns := float64(len(solns))
 	for cp := range filtered {
+		// Normalize by number of solutions possible
+		cp.Probability /= nsolns
 		log.Print(cp)
 	}
 }
 
 func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-chan ComboProb {
-	out := make(chan ComboProb, 100)
+	out := make(chan ComboProb, 1000)
 	go func() {
 		var wg sync.WaitGroup
 		for words := range in {
@@ -237,7 +195,7 @@ func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-ch
 
 				prob := 0.
 				for _, solution := range solns {
-					ambiguities := wordle.Ambiguities(words, solution).Len()
+					ambiguities := wordle.Ambiguities(words, solution).Count()
 					prob += 1. / float64(ambiguities)
 				}
 				out <- ComboProb{Combination: words, Probability: prob}
@@ -250,7 +208,7 @@ func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-ch
 }
 
 func filterBest(in <-chan ComboProb) <-chan ComboProb {
-	out := make(chan ComboProb, 100)
+	out := make(chan ComboProb, 1000)
 	go func() {
 		best := ComboProb{Combination: make([]Word, *nGuesses), Probability: 0}
 		for cp := range in {
@@ -291,8 +249,10 @@ func disjointLetters(ws []Word) bool {
 }
 
 func wordCombinations(ws []Word, n int) <-chan []Word {
-	out := make(chan []Word, 100)
+	out := make(chan []Word, 1000)
 	go func() {
+		numComb := combin.Binomial(len(ws), n)
+		bar := pb.ProgressBarTemplate(pb.Full).Start(numComb)
 		gen := combin.NewCombinationGenerator(len(ws), n)
 		comb := make([]int, n)
 		for gen.Next() {
@@ -302,7 +262,9 @@ func wordCombinations(ws []Word, n int) <-chan []Word {
 				words[i] = ws[j]
 			}
 			out <- words
+			bar.Increment()
 		}
+		bar.Finish()
 		close(out)
 	}()
 	return out
