@@ -16,6 +16,7 @@ import (
 )
 
 var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize")
+var forceDisjoint = flag.Bool("d", false, "force all words in guess to have unique letters, including forbidding guesses to have duplicate letters")
 
 const alphabetSize = 26
 const wordSize = 5
@@ -168,9 +169,9 @@ func main() {
 
 	wordle := NewWordle(solns)
 
-	combinations := wordCombinations(guesses, *nGuesses)              // produce combinations
-	unfiltered := calculateProbabilities(wordle, solns, combinations) // multi-thread calculate solutions
-	filtered := filterBest(unfiltered)                                // merge
+	combinations := wordCombinations(guesses, *nGuesses)                              // produce combinations
+	unfiltered := calculateProbabilities(wordle, solns, *forceDisjoint, combinations) // multi-thread calculate solutions
+	filtered := filterBest(unfiltered)                                                // merge
 
 	nsolns := float64(len(solns))
 	for cp := range filtered {
@@ -180,8 +181,16 @@ func main() {
 	}
 }
 
-func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-chan ComboProb {
+func calculateProbabilities(wordle *Wordle, solns []Word, disjoint bool, in <-chan []Word) <-chan ComboProb {
 	out := make(chan ComboProb, 1000)
+	filter := func(words []Word) bool {
+		return true
+	}
+	if disjoint {
+		filter = func(words []Word) bool {
+			return disjointLetters(words)
+		}
+	}
 	go func() {
 		var wg sync.WaitGroup
 		for words := range in {
@@ -189,7 +198,7 @@ func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-ch
 			go func(words []Word) {
 				defer wg.Done()
 
-				if !disjointLetters(words) {
+				if !filter(words) {
 					return
 				}
 
@@ -210,9 +219,12 @@ func calculateProbabilities(wordle *Wordle, solns []Word, in <-chan []Word) <-ch
 func filterBest(in <-chan ComboProb) <-chan ComboProb {
 	out := make(chan ComboProb, 1000)
 	go func() {
-		best := ComboProb{Combination: make([]Word, *nGuesses), Probability: 0}
+		best := ComboProb{Combination: make([]Word, 0), Probability: 0}
 		for cp := range in {
 			if cp.Probability > best.Probability {
+				if len(best.Combination) != len(cp.Combination) {
+					best.Combination = make([]Word, len(cp.Combination))
+				}
 				copy(best.Combination, cp.Combination)
 				best.Probability = cp.Probability
 				out <- cp
