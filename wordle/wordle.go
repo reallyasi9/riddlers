@@ -172,6 +172,9 @@ func main() {
 
 	start := []Word{}
 	for _, word := range strings.Split(*startingWords, ",") {
+		if len(word) != 5 {
+			continue
+		}
 		start = append(start, makeWordFromString(word))
 	}
 
