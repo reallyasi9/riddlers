@@ -5,7 +5,6 @@ go 1.17
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/kelindar/bitmap v1.1.5
-	github.com/pkg/profile v1.6.0
 	gonum.org/v1/gonum v0.9.3
 )
 

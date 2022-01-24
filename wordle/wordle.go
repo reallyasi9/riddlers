@@ -127,6 +127,7 @@ func (w *Wordle) Ambiguities(guesses []Word, soln Word) bitmap.Bitmap {
 				possible.And(w.wordsContainingLetterByPosition[letter][guess[letter]])
 			case PRESENT:
 				possible.And(w.wordsContainingLetter[guess[letter]])
+				possible.AndNot(w.wordsContainingLetterByPosition[letter][guess[letter]])
 			case MISSING:
 				possible.And(w.wordsNotContainingLetter[guess[letter]])
 			default:
@@ -149,6 +150,10 @@ func (cp ComboProb) String() string {
 	}
 	joined := strings.Join(words, " + ")
 	return fmt.Sprintf("%s = %f (%d deduced)", joined, cp.Probability, cp.Deduced)
+}
+
+funct init() {
+	log.SetOutput(os.Stdout)
 }
 
 func main() {
