@@ -16,7 +16,7 @@ import (
 )
 
 var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize after starting guesses")
-var forceDisjoint = flag.Bool("d", false, "force all words in guess to have unique letters, including forbidding guesses to have duplicate letters")
+var forceDisjoint = flag.Bool("d", false, "force all words in all guesses to have mutually unique letters")
 var startingWords = flag.String("s", "", "comma-separated list of starting guesses")
 
 const alphabetSize = 26
@@ -152,7 +152,7 @@ func (cp ComboProb) String() string {
 	return fmt.Sprintf("%s = %f (%d deduced)", joined, cp.Probability, cp.Deduced)
 }
 
-funct init() {
+func init() {
 	log.SetOutput(os.Stdout)
 }
 
