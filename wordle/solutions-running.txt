@@ -81,7 +81,6 @@ aping
 apnea
 apple
 apply
-apron
 aptly
 arbor
 ardor
@@ -97,8 +96,6 @@ ascot
 ashen
 assay
 asset
-atoll
-atone
 attic
 audio
 augur
@@ -135,7 +132,6 @@ baste
 batch
 bathe
 bawdy
-bayou
 beach
 beady
 beard
@@ -391,7 +387,6 @@ crane
 crash
 crave
 crawl
-creak
 cream
 credo
 creed
@@ -399,7 +394,6 @@ creek
 creep
 creme
 crepe
-crept
 cress
 crest
 crick
@@ -460,7 +454,6 @@ demon
 demur
 denim
 dense
-depth
 derby
 deter
 detox
@@ -486,7 +479,6 @@ dodgy
 dogma
 doing
 dolly
-donor
 donut
 dopey
 doubt
@@ -652,9 +644,7 @@ fleet
 flier
 flint
 flirt
-float
 flock
-flood
 floor
 flora
 flour
@@ -692,7 +682,6 @@ fritz
 frock
 frond
 frost
-froth
 frown
 froze
 fruit
@@ -730,7 +719,6 @@ giant
 giddy
 gipsy
 girly
-girth
 given
 giver
 glade
@@ -744,7 +732,6 @@ glide
 glint
 gloat
 globe
-gloom
 glory
 gloss
 glove
@@ -758,7 +745,6 @@ gonad
 goody
 gooey
 goofy
-goose
 gourd
 grace
 graft
@@ -1032,7 +1018,6 @@ mangy
 mania
 manic
 manly
-manor
 maple
 march
 marsh
@@ -1206,13 +1191,11 @@ pesky
 pesto
 petal
 petty
-phase
 phone
 phony
 photo
 piano
 piece
-piety
 piggy
 pinch
 piney
@@ -1263,7 +1246,6 @@ press
 price
 pried
 prime
-primo
 prior
 prism
 privy
@@ -1501,7 +1483,6 @@ short
 shout
 shove
 shown
-showy
 shrew
 shrug
 shuck
@@ -1777,7 +1758,6 @@ throw
 thrum
 thump
 thyme
-tiara
 tibia
 tidal
 tight
@@ -1811,7 +1791,6 @@ tract
 trade
 trail
 train
-trait
 tramp
 trash
 tread
