@@ -25,7 +25,6 @@ afoot
 afoul
 after
 again
-agape
 agent
 agile
 aging
@@ -108,7 +107,6 @@ await
 award
 aware
 awash
-awful
 awoke
 axial
 axiom
@@ -133,7 +131,6 @@ batch
 bathe
 bawdy
 beach
-beady
 beard
 beast
 beech
@@ -189,7 +186,6 @@ block
 blond
 blood
 bloom
-blown
 bluer
 bluff
 blunt
@@ -228,7 +224,6 @@ breed
 brick
 bride
 brief
-brink
 briny
 brisk
 broad
@@ -267,7 +262,6 @@ cabal
 cabby
 cabin
 cable
-cacao
 cache
 cacti
 caddy
@@ -487,7 +481,6 @@ dowdy
 dowel
 downy
 draft
-drake
 drama
 drank
 drape
@@ -502,7 +495,6 @@ drift
 drill
 drive
 droit
-droll
 drone
 drool
 droop
@@ -535,7 +527,6 @@ eclat
 edict
 edify
 eerie
-egret
 eight
 eject
 eking
@@ -615,7 +606,6 @@ fever
 fiber
 fibre
 ficus
-field
 fiend
 fiery
 fifth
@@ -650,7 +640,6 @@ flora
 flour
 flout
 flown
-fluff
 fluid
 fluke
 flung
@@ -704,7 +693,6 @@ gauge
 gaunt
 gauze
 gavel
-gawky
 gayer
 gayly
 gazer
@@ -730,7 +718,6 @@ gleam
 glean
 glide
 glint
-gloat
 globe
 glory
 gloss
@@ -849,7 +836,6 @@ hunky
 hurry
 husky
 hussy
-hutch
 hydro
 hyena
 hymen
@@ -876,7 +862,6 @@ ingot
 inlay
 inlet
 inner
-input
 inter
 intro
 ionic
@@ -959,7 +944,6 @@ lever
 libel
 liege
 liken
-lilac
 limbo
 limit
 liner
@@ -980,7 +964,6 @@ logic
 login
 loose
 lorry
-loser
 louse
 lousy
 lover
@@ -1200,7 +1183,6 @@ piggy
 pinch
 piney
 pinky
-pinto
 piper
 pique
 pitch
@@ -1341,7 +1323,6 @@ reply
 rerun
 reset
 resin
-retro
 retry
 reuse
 revel
@@ -1383,7 +1364,6 @@ ruler
 rumba
 rumor
 rural
-rusty
 sadly
 safer
 saint
@@ -1443,7 +1423,6 @@ serif
 serum
 setup
 seven
-sever
 sewer
 shack
 shade
@@ -1541,7 +1520,6 @@ smear
 smell
 smile
 smirk
-smite
 smith
 smock
 smoke
