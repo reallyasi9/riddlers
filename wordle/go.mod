@@ -6,7 +6,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
 	github.com/kelindar/bitmap v1.1.5
-	gonum.org/v1/gonum v0.9.3
+	github.com/segmentio/fasthash v1.0.3
 )
 
 require (

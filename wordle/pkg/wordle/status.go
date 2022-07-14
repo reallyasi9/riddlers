@@ -1,6 +1,9 @@
 package wordle
 
-import "github.com/kelindar/bitmap"
+import (
+	"github.com/kelindar/bitmap"
+	"github.com/segmentio/fasthash/fnv1a"
+)
 
 type LetterStatusCode int
 
@@ -13,9 +16,6 @@ const (
 type WordStatus [WORD_SIZE]LetterStatusCode
 
 type PlayStatus struct {
-	Guesses      []Word
-	WordStatuses []WordStatus
-
 	absent               bitmap.Bitmap
 	presentWrongPosition [WORD_SIZE]bitmap.Bitmap
 	otherwisePresent     bitmap.Bitmap
@@ -28,8 +28,6 @@ func NewStatus() *PlayStatus {
 		pwp[i] = bitmap.Bitmap{}
 	}
 	return &PlayStatus{
-		Guesses:              []Word{},
-		WordStatuses:         []WordStatus{},
 		absent:               bitmap.Bitmap{},
 		presentWrongPosition: pwp,
 		otherwisePresent:     bitmap.Bitmap{},
@@ -39,7 +37,7 @@ func NewStatus() *PlayStatus {
 
 func (ps *PlayStatus) Possible(soln Word) bool {
 	for i, c := range soln {
-		if ps.correct[i] != 0 && c != ps.correct[i] {
+		if ps.correct[i] != ZERO_CHAR && c != ps.correct[i] {
 			return false
 		}
 		if ps.absent.Contains(uint32(c)) {
@@ -56,9 +54,6 @@ func (ps *PlayStatus) Possible(soln Word) bool {
 }
 
 func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {
-	ps.Guesses = append(ps.Guesses, word)
-	ps.WordStatuses = append(ps.WordStatuses, ws)
-
 	for i, st := range ws {
 		switch st {
 		case ABSENT:
@@ -70,15 +65,9 @@ func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {
 			ps.correct[i] = word[i]
 		}
 	}
-
 }
 
 func (ps *PlayStatus) Clone() *PlayStatus {
-	guesses := make([]Word, len(ps.Guesses))
-	copy(guesses, ps.Guesses)
-	statuses := make([]WordStatus, len(ps.WordStatuses))
-	copy(statuses, ps.WordStatuses)
-
 	absent := ps.absent.Clone(nil)
 	prp := [WORD_SIZE]bitmap.Bitmap{}
 	for i := range prp {
@@ -88,11 +77,27 @@ func (ps *PlayStatus) Clone() *PlayStatus {
 	correct := ps.correct
 
 	return &PlayStatus{
-		Guesses:              guesses,
-		WordStatuses:         statuses,
 		absent:               absent,
 		presentWrongPosition: prp,
 		otherwisePresent:     op,
 		correct:              correct,
 	}
+}
+
+func (ps *PlayStatus) Hash() uint64 {
+	h := fnv1a.Init64
+	for _, val := range ps.absent {
+		h = fnv1a.AddUint64(h, val)
+	}
+	for _, bs := range ps.presentWrongPosition {
+		for _, val := range bs {
+			h = fnv1a.AddUint64(h, val)
+		}
+	}
+	for _, val := range ps.otherwisePresent {
+		h = fnv1a.AddUint64(h, val)
+	}
+	h = fnv1a.AddBytes64(h, ps.correct[:])
+
+	return h
 }

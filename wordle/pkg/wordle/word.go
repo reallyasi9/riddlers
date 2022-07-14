@@ -1,6 +1,7 @@
 package wordle
 
 const WORD_SIZE = 5
+const ZERO_CHAR = 'a' - 1
 
 type Word [WORD_SIZE]byte
 
@@ -12,7 +13,7 @@ func NewWord(bs []byte) Word {
 		if i >= WORD_SIZE {
 			break
 		}
-		w[i] = b
+		w[i] = b - ZERO_CHAR
 	}
 	return w
 }
@@ -22,7 +23,11 @@ func NewWordFromString(s string) Word {
 }
 
 func (w Word) String() string {
-	return string(w[:])
+	out := [WORD_SIZE]byte{}
+	for i, c := range w {
+		out[i] = c + ZERO_CHAR
+	}
+	return string(out[:])
 }
 
 func (w Word) Compare(soln Word) WordStatus {
