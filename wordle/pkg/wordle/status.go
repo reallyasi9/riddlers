@@ -17,7 +17,7 @@ type WordStatus [WORD_SIZE]LetterStatusCode
 
 type PlayStatus struct {
 	absent               bitmap.Bitmap
-	presentWrongPosition [WORD_SIZE]bitmap.Bitmap
+	presentWrongPosition [wordle.WORD_SIZE]bitmap.Bitmap
 	otherwisePresent     bitmap.Bitmap
 	correct              Word
 }

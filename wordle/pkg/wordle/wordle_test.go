@@ -1,7 +1,6 @@
 package wordle
 
 import (
-	"math/rand"
 	"testing"
 )
 
@@ -27,13 +26,13 @@ func BenchmarkCompare(b *testing.B) {
 	}
 }
 
-func randomWord() Word {
-	var w Word
-	for i := 0; i < 5; i++ {
-		w[i] = byte(rand.Intn(26))
-	}
-	return w
-}
+// func randomWord() Word {
+// 	var w Word
+// 	for i := 0; i < 5; i++ {
+// 		w[i] = byte(rand.Intn(26))
+// 	}
+// 	return w
+// }
 
 // func BenchmarkAmbiguities(b *testing.B) {
 // 	solnFile, err := os.Open("solutions.txt")

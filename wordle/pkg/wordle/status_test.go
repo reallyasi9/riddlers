@@ -1,10 +1,19 @@
 package wordle
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/kelindar/bitmap"
 )
+
+func randomWord(s rand.Source) Word {
+	var w Word
+	for i := range w {
+		w[i] = byte(s.Int63()%ALPHABET_SIZE) + 1
+	}
+	return w
+}
 
 func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 	type args struct {
@@ -16,10 +25,6 @@ func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 	abcde := NewWordFromString("abcde")
 
 	expAbsent := bitmap.Bitmap{}
-	expAbsent.Set('b' - ZERO_CHAR)
-	expAbsent.Set('c' - ZERO_CHAR)
-	expAbsent.Set('d' - ZERO_CHAR)
-	expAbsent.Set('e' - ZERO_CHAR)
 
 	tests := []struct {
 		name string
@@ -46,7 +51,7 @@ func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 				t.Errorf("expected first letter not presentWrongPosition, got %v", tt.ps.presentWrongPosition[0])
 			}
 			for i := 1; i < WORD_SIZE; i++ {
-				if tt.ps.presentWrongPosition[i].Count() != 1 || tt.ps.presentWrongPosition[i].Contains('a'-ZERO_CHAR) {
+				if tt.ps.presentWrongPosition[i].Count() != 1 || !tt.ps.presentWrongPosition[i].Contains('a'-ZERO_CHAR) {
 					t.Errorf("expected letter %d presentWrongPosition 'a', got %v", i, tt.ps.presentWrongPosition[i])
 				}
 			}
@@ -56,8 +61,27 @@ func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 			abs := tt.ps.absent.Clone(nil)
 			abs.Xor(expAbsent)
 			if abs.Count() != 0 {
-				t.Errorf("expected absent to contain only 'bcde', saw %v", tt.ps.absent)
+				t.Errorf("expected absent be empty, saw %v", tt.ps.absent)
 			}
 		})
+	}
+}
+
+func BenchmarkPlayStatus_UpdateWithGuess(b *testing.B) {
+	ps := NewStatus()
+	s := rand.NewSource(0x42)
+	soln := randomWord(s)
+
+	guesses := make([]Word, b.N)
+	statuses := make([]WordStatus, b.N)
+	for i := 0; i < b.N; i++ {
+		word := randomWord(s)
+		guesses[i] = word
+		statuses[i] = word.Compare(soln)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ps.UpdateWithGuess(guesses[i], statuses[i])
 	}
 }
