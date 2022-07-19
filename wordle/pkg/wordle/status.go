@@ -1,6 +1,8 @@
 package wordle
 
 import (
+	"fmt"
+
 	"github.com/kelindar/bitmap"
 	"github.com/segmentio/fasthash/fnv1a"
 )
@@ -15,14 +17,34 @@ const (
 
 type WordStatus [WORD_SIZE]LetterStatusCode
 
+func NewWordStatus(s string) WordStatus {
+	if len(s) != WORD_SIZE {
+		panic("word status length must be 5")
+	}
+	var ws WordStatus
+	for i, r := range s {
+		switch r {
+		case '+':
+			ws[i] = CORRECT
+		case '-':
+			ws[i] = ABSENT
+		case '?':
+			ws[i] = PRESENT
+		default:
+			panic(fmt.Sprintf("words status character '%c' not recognized", r))
+		}
+	}
+	return ws
+}
+
 type PlayStatus struct {
 	absent               bitmap.Bitmap
-	presentWrongPosition [wordle.WORD_SIZE]bitmap.Bitmap
+	presentWrongPosition [WORD_SIZE]bitmap.Bitmap
 	otherwisePresent     bitmap.Bitmap
 	correct              Word
 }
 
-func NewStatus() *PlayStatus {
+func NewPlayStatus() *PlayStatus {
 	pwp := [WORD_SIZE]bitmap.Bitmap{}
 	for i := range pwp {
 		pwp[i] = bitmap.Bitmap{}
@@ -36,21 +58,24 @@ func NewStatus() *PlayStatus {
 }
 
 func (ps *PlayStatus) Possible(soln Word) bool {
+	var otherwiseFound bitmap.Bitmap
 	for i, c := range soln {
-		if ps.correct[i] != ZERO_CHAR && c != ps.correct[i] {
+		if ps.correct[i] != 0 && c != ps.correct[i] {
 			return false
 		}
-		if ps.absent.Contains(uint32(c)) {
+		cint := uint32(c)
+		if ps.absent.Contains(cint) {
 			return false
 		}
-		if ps.presentWrongPosition[i].Contains(uint32(c)) {
+		if ps.presentWrongPosition[i].Contains(cint) {
 			return false
 		}
-		if !ps.otherwisePresent.Contains(uint32(c)) {
-			return false
+		if ps.otherwisePresent.Contains(cint) {
+			otherwiseFound.Set(cint)
 		}
 	}
-	return true
+	otherwiseFound.Xor(ps.otherwisePresent)
+	return otherwiseFound.Count() == 0
 }
 
 func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {

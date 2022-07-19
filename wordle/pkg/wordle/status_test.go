@@ -34,7 +34,7 @@ func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 		// TODO: Add test cases.
 		{
 			name: "'aaaaa' vs 'abcde' from (empty)",
-			ps:   NewStatus(),
+			ps:   NewPlayStatus(),
 			args: args{
 				word: aaaaa,
 				ws:   aaaaa.Compare(abcde),
@@ -68,7 +68,7 @@ func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 }
 
 func BenchmarkPlayStatus_UpdateWithGuess(b *testing.B) {
-	ps := NewStatus()
+	ps := NewPlayStatus()
 	s := rand.NewSource(0x42)
 	soln := randomWord(s)
 
