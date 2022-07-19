@@ -58,15 +58,15 @@ func main() {
 	}
 
 	if len(solutions) == 1 {
-		fmt.Print("There is only one possible soution remaining: ")
+		fmt.Print("There is only one possible soution remaining.\n")
 		for soln := range solutions {
-			fmt.Print("%s\n", soln)
+			fmt.Printf("%s\n", soln)
 		}
 		return
 	}
 
+	fmt.Printf("There are %d solutions remaining.\n", len(solutions))
 	if len(solutions) <= 10 {
-		fmt.Printf("There are only %d solutions remaining:\n", len(solutions))
 		for soln := range solutions {
 			fmt.Printf("%s\n", soln)
 		}
@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 
-	log.Println("Minimizing initial entropy (this may take a few minutes)")
+	log.Println("Finding the guess that maximizes entropy (this may take a few minutes)")
 
 	entropy := make([]EntropyWord, len(guessables))
 	nsolns := float64(len(solutions))
@@ -103,7 +103,10 @@ func main() {
 	}
 
 	sort.Sort(ByEntropy(entropy))
-	fmt.Printf("Best guess: %s (entropy: %f, solutions remaining: %d)\n", entropy[0].Word, entropy[0].Entropy, entropy[0].SolutionGroups)
+	fmt.Printf("Best guesses:\n")
+	for i := 0; i < 5; i++ {
+		fmt.Printf("%s (entropy increase: %f; solution groups remaining: %d; is solution: %t)\n", entropy[i].Word, -entropy[i].Entropy, entropy[i].SolutionGroups, entropy[i].IsSolution)
+	}
 
 }
 
