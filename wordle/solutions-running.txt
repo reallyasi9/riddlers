@@ -74,7 +74,6 @@ antic
 anvil
 aorta
 apart
-aphid
 aping
 apnea
 apple
@@ -1771,7 +1770,6 @@ trice
 trick
 tried
 tripe
-trite
 troop
 trout
 truce
@@ -1782,7 +1780,6 @@ trump
 trunk
 trust
 truth
-tryst
 tubal
 tuber
 tulip
