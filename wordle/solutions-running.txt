@@ -533,7 +533,6 @@ elegy
 elfin
 elide
 elite
-elope
 elude
 email
 embed
@@ -1211,7 +1210,6 @@ posit
 posse
 pouch
 pouty
-power
 prank
 prawn
 preen
