@@ -183,7 +183,6 @@ blond
 blood
 bloom
 bluer
-bluff
 blunt
 blurb
 board
@@ -318,7 +317,6 @@ chump
 churn
 chute
 cider
-cinch
 circa
 civil
 clack
@@ -372,7 +370,6 @@ cower
 coyly
 crack
 craft
-cramp
 crane
 crash
 crave
@@ -1045,7 +1042,6 @@ morph
 mossy
 motel
 motif
-motto
 mound
 mouse
 mouth
@@ -1249,7 +1245,6 @@ quail
 quake
 qualm
 quark
-quart
 quash
 quasi
 queen
@@ -1615,7 +1610,6 @@ stock
 stoic
 stoke
 stole
-stomp
 stone
 stony
 stood
@@ -1812,7 +1806,6 @@ until
 unwed
 unzip
 upper
-upset
 urban
 urine
 usage
