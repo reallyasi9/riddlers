@@ -33,19 +33,28 @@ func (w Word) String() string {
 func (w Word) Compare(soln Word) WordStatus {
 	var status WordStatus
 
+	// correct first
+	for i, c := range w {
+		if soln[i] == c {
+			status[i] = CORRECT
+			soln[i] = 0 // prevent further matches
+		}
+	}
+	// present second
 OUTER:
 	for i, c := range w {
+		if status[i] == CORRECT {
+			continue
+		}
 		for j, x := range soln {
 			if c == x {
-				if i == j {
-					status[i] = CORRECT
-					continue OUTER
-				} else {
-					status[i] = PRESENT
-				}
+				status[i] = PRESENT
+				soln[j] = 0 // prevent further matches
+				continue OUTER
 			}
 		}
 	}
+	// default is absent
 
 	return status
 }

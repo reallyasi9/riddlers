@@ -7,61 +7,109 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-func randomWord(s rand.Source) Word {
-	var w Word
-	for i := range w {
-		w[i] = byte(s.Int63()%ALPHABET_SIZE) + 1
-	}
-	return w
-}
-
 func TestPlayStatus_UpdateWithGuess(t *testing.T) {
 	type args struct {
-		word Word
-		ws   WordStatus
+		target Word
+		words  []Word
+		wss    []WordStatus
 	}
 
-	aaaaa := NewWordFromString("aaaaa")
-	abcde := NewWordFromString("abcde")
-
-	expAbsent := bitmap.Bitmap{}
+	ceorl := NewWordFromString("ceorl")
+	saint := NewWordFromString("saint")
+	crazy := NewWordFromString("crazy")
+	cramp := NewWordFromString("cramp")
 
 	tests := []struct {
-		name string
-		ps   *PlayStatus
-		args args
+		name   string
+		ps     *PlayStatus
+		args   args
+		exppos [][WORD_SIZE]bitmap.Bitmap
+		expmin [][N_LETTERS]int
+		expmax [][N_LETTERS]int
 	}{
 		// TODO: Add test cases.
 		{
-			name: "'aaaaa' vs 'abcde' from (empty)",
+			name: "backtrack-cramp",
 			ps:   NewPlayStatus(),
 			args: args{
-				word: aaaaa,
-				ws:   aaaaa.Compare(abcde),
+				target: cramp,
+				words:  []Word{ceorl, saint, crazy},
+				wss: []WordStatus{
+					{CORRECT, ABSENT, ABSENT, PRESENT, ABSENT},
+					{ABSENT, PRESENT, ABSENT, ABSENT, ABSENT},
+					{CORRECT, CORRECT, CORRECT, ABSENT, ABSENT},
+				},
+			},
+			exppos: [][WORD_SIZE]bitmap.Bitmap{
+				{
+					//              zyxwvutsrqponmlkjihgfedcba.
+					bitmap.Bitmap{1 << 3},                        // Only c
+					bitmap.Bitmap{0b111111111110110111111011111}, // Not: elo
+					bitmap.Bitmap{0b111111111110110111111011111}, // Not: elo
+					bitmap.Bitmap{0b111111110110110111111011111}, // Not: elor
+					bitmap.Bitmap{0b111111111110110111111011111}, // Not: elo
+				},
+				{
+					//              zyxwvutsrqponmlkjihgfedcba.
+					bitmap.Bitmap{1 << 3},                        // Only c
+					bitmap.Bitmap{0b111111001110010110111011101}, // Not: aeilnost
+					bitmap.Bitmap{0b111111001110010110111011111}, // Not: eilnost
+					bitmap.Bitmap{0b111111000110010110111011111}, // Not: eilnorst
+					bitmap.Bitmap{0b111111001110010110111011111}, // Not: eilnost
+				},
+				{
+					//              zyxwvutsrqponmlkjihgfedcba.
+					bitmap.Bitmap{1 << 3},                        // Only c
+					bitmap.Bitmap{1 << 18},                       // Only r
+					bitmap.Bitmap{1 << 1},                        // Only a
+					bitmap.Bitmap{0b001111000110010110111011111}, // Not: eilnorstyz
+					bitmap.Bitmap{0b001111001110010110111011111}, // Not: eilnostyz
+				},
+			},
+			expmin: [][N_LETTERS]int{
+				//  a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z
+				{
+					0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+				},
+				{
+					1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+				},
+				{
+					1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+				},
+			},
+			expmax: [][N_LETTERS]int{
+				//   a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z
+				{
+					-1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0, -1, -1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+				},
+				{
+					-1, -1, -1, -1, 0, -1, -1, -1, 0, -1, -1, 0, -1, 0, 0, -1, -1, -1, 0, 0, -1, -1, -1, -1, -1, -1,
+				},
+				{
+					-1, -1, -1, -1, 0, -1, -1, -1, 0, -1, -1, 0, -1, 0, 0, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 0,
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.ps.UpdateWithGuess(tt.args.word, tt.args.ws)
-			if tt.ps.absent.Count() != 0 {
-				t.Errorf("expected no absent letters, got %v", tt.ps.absent)
-			}
-			if tt.ps.presentWrongPosition[0].Count() != 0 {
-				t.Errorf("expected first letter not presentWrongPosition, got %v", tt.ps.presentWrongPosition[0])
-			}
-			for i := 1; i < WORD_SIZE; i++ {
-				if tt.ps.presentWrongPosition[i].Count() != 1 || !tt.ps.presentWrongPosition[i].Contains('a'-ZERO_CHAR) {
-					t.Errorf("expected letter %d presentWrongPosition 'a', got %v", i, tt.ps.presentWrongPosition[i])
+			for i, guess := range tt.args.words {
+				tt.ps.UpdateWithGuess(guess, tt.args.wss[i])
+				for letter := 0; letter < WORD_SIZE; letter++ {
+					var testBitmap bitmap.Bitmap
+					testBitmap.Or(tt.ps.possible[letter])
+					testBitmap.Xor(tt.exppos[i][letter])
+					if testBitmap.Count() != 0 {
+						t.Errorf("after guessing %s against %s (%v), expected letter %d present %v, got %v", guess, tt.args.target, tt.args.wss[i], letter, tt.exppos[i][letter], tt.ps.possible[letter])
+					}
 				}
-			}
-			if !tt.ps.otherwisePresent.Contains('a' - ZERO_CHAR) {
-				t.Errorf("expected 'a' otherwisePresent, got %v", tt.ps.otherwisePresent)
-			}
-			abs := tt.ps.absent.Clone(nil)
-			abs.Xor(expAbsent)
-			if abs.Count() != 0 {
-				t.Errorf("expected absent be empty, saw %v", tt.ps.absent)
+				if tt.ps.minimumPresent != tt.expmin[i] {
+					t.Errorf("after guessing %s against %s (%v), expected minimumPresent %v, got %v", guess, tt.args.target, tt.args.wss[i], tt.expmin[i], tt.ps.minimumPresent)
+				}
+				if tt.ps.maximumPresent != tt.expmax[i] {
+					t.Errorf("after guessing %s against %s (%v), expected maximumPresent %v, got %v", guess, tt.args.target, tt.args.wss[i], tt.expmax[i], tt.ps.maximumPresent)
+				}
 			}
 		})
 	}
