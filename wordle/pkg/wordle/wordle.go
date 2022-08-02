@@ -56,12 +56,12 @@ func (w *Wordle) Ambiguities(guesses []Word, soln Word) bitmap.Bitmap {
 		for letter, stat := range status {
 			switch stat {
 			case CORRECT:
-				possible.And(w.wordsContainingLetterByPosition[letter][guess[letter]])
+				possible.And(w.wordsContainingLetterByPosition[letter][guess[letter]-1])
 			case PRESENT:
-				possible.And(w.wordsContainingLetter[guess[letter]])
-				possible.AndNot(w.wordsContainingLetterByPosition[letter][guess[letter]])
+				possible.And(w.wordsContainingLetter[guess[letter]-1])
+				possible.AndNot(w.wordsContainingLetterByPosition[letter][guess[letter]-1])
 			case ABSENT:
-				possible.And(w.wordsNotContainingLetter[guess[letter]])
+				possible.And(w.wordsNotContainingLetter[guess[letter]-1])
 			default:
 			}
 		}
