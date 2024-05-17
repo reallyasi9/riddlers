@@ -1,0 +1,4 @@
+[deps]
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
