@@ -7,11 +7,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/gonum/stat/combin"
+	"github.com/kelindar/bitmap"
 	"github.com/reallyasi9/riddler/wordle/pkg/wordle"
 )
 
@@ -21,13 +23,20 @@ var startingWords = flag.String("s", "", "comma-separated list of starting guess
 
 func init() {
 	log.SetOutput(os.Stdout)
+	flag.CommandLine.Usage = func() {
+		name, _ := os.Executable()
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <solutions-file> <guesses-file> [-d] [-g N] [-s GUESS,GUESS,...]\n", filepath.Base(name))
+		flag.PrintDefaults()
+	}
 }
 
 func main() {
 
 	flag.Parse()
 	if flag.NArg() != 2 {
-		log.Fatal("wordle requres two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses")
+		flag.CommandLine.Usage()
+		name, _ := os.Executable()
+		log.Fatalf("%s requres two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses", filepath.Base(name))
 	}
 
 	solnFile, err := os.Open(flag.Arg(0))
@@ -80,7 +89,7 @@ func (cp ComboProb) String() string {
 }
 
 func calculateProbabilities(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in <-chan []wordle.Word) <-chan ComboProb {
-	out := make(chan ComboProb, 1000)
+	out := make(chan ComboProb, 1024)
 	filter := func(words []wordle.Word) bool {
 		return true
 	}
@@ -120,11 +129,11 @@ func calculateProbabilities(wdl *wordle.Wordle, solns []wordle.Word, disjoint bo
 }
 
 func filterBest(in <-chan ComboProb) <-chan ComboProb {
-	out := make(chan ComboProb, 1000)
+	out := make(chan ComboProb, 1024)
 	go func() {
 		best := ComboProb{Combination: make([]wordle.Word, 0)}
 		for cp := range in {
-			if cp.Probability > best.Probability {
+			if cp.Probability > best.Probability || (cp.Probability == best.Probability && cp.Deduced > best.Deduced) {
 				if len(best.Combination) != len(cp.Combination) {
 					best.Combination = make([]wordle.Word, len(cp.Combination))
 				}
@@ -152,13 +161,13 @@ func disjointLetters(ws []wordle.Word) bool {
 	if len(ws) == 0 {
 		return true
 	}
-	letters := make(map[byte]struct{})
-	for i, w := range ws {
+	letters := bitmap.Bitmap{(1 << wordle.N_LETTERS)}
+	for _, w := range ws {
 		for _, l := range w {
-			letters[l] = struct{}{}
-		}
-		if len(letters) != (i+1)*5 {
-			return false
+			if letters.Contains(uint32(l)) {
+				return false
+			}
+			letters.Set(uint32(l))
 		}
 	}
 	return true
@@ -168,7 +177,7 @@ func wordCombinations(ws []wordle.Word, start []wordle.Word, n int) <-chan []wor
 	if len(start)+n > 6 {
 		panic("a maximum of only 6 guesses are allowed!")
 	}
-	out := make(chan []wordle.Word, 1000)
+	out := make(chan []wordle.Word, 1024)
 	go func() {
 		numComb := combin.Binomial(len(ws), n)
 		bar := pb.ProgressBarTemplate(pb.Full).Start(numComb)

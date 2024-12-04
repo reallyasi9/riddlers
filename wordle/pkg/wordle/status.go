@@ -19,7 +19,7 @@ type WordStatus [WORD_SIZE]LetterStatusCode
 
 func NewWordStatus(s string) WordStatus {
 	if len(s) != WORD_SIZE {
-		panic("word status length must be 5")
+		panic(fmt.Sprintf("word status length must be %d", WORD_SIZE))
 	}
 	var ws WordStatus
 	for i, r := range s {
@@ -37,6 +37,18 @@ func NewWordStatus(s string) WordStatus {
 	return ws
 }
 
+func (ws WordStatus) TrinaryIndex() int {
+	idx := 0
+	pow := 1
+	for _, code := range ws {
+		idx += pow * int(code)
+		pow *= 3
+	}
+	return idx
+}
+
+const N_STATUS_OUTCOMES = 243 // 3^5
+
 const N_LETTERS = 26
 
 type PlayStatus struct {
@@ -51,11 +63,11 @@ type PlayStatus struct {
 func NewPlayStatus() *PlayStatus {
 	possible := [WORD_SIZE]bitmap.Bitmap{}
 	for i := range possible {
-		possible[i] = bitmap.Bitmap{(1 << (N_LETTERS + 1)) - 1}
+		possible[i] = bitmap.Bitmap{1 << N_LETTERS}
 	}
 	maximumPresent := [N_LETTERS]int{}
 	for c := range maximumPresent {
-		maximumPresent[c] = -1
+		maximumPresent[c] = WORD_SIZE
 	}
 	return &PlayStatus{
 		possible:       possible,
@@ -65,19 +77,19 @@ func NewPlayStatus() *PlayStatus {
 }
 
 func (ps *PlayStatus) Possible(soln Word) bool {
-	letterCounts := make(map[uint32]int)
+	letterCounts := [N_LETTERS]int{}
 	for i, c := range soln {
-		cint := uint32(c)
+		cint := uint32(c) - 1
 		if !ps.possible[i].Contains(cint) {
 			return false
 		}
 		letterCounts[cint]++
-	}
-	for cint, n := range letterCounts {
-		if n < ps.minimumPresent[cint-1] {
+		if letterCounts[cint] > ps.maximumPresent[cint] {
 			return false
 		}
-		if ps.maximumPresent[cint-1] >= 0 && n > ps.maximumPresent[cint-1] {
+	}
+	for cint, n := range letterCounts {
+		if n < ps.minimumPresent[cint] {
 			return false
 		}
 	}
@@ -85,38 +97,47 @@ func (ps *PlayStatus) Possible(soln Word) bool {
 }
 
 func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {
-	letterCounts := make(map[uint32]int)
-	maxFound := make(map[uint32]struct{})
+	localMins := [N_LETTERS]int{}
+	localMaxs := [N_LETTERS]int{}
+	for i := range localMaxs {
+		localMaxs[i] = WORD_SIZE
+	}
+
 	for i, st := range ws {
-		cint := uint32(word[i])
+		cint := uint32(word[i]) - 1
 		switch st {
 		case ABSENT:
-			// Only eliminate from positions that are not solved
-			for j := 0; j < WORD_SIZE; j++ {
-				if ps.possible[j].Count() > 1 {
-					ps.possible[j].Remove(cint)
-				}
-			}
-			letterCounts[cint] += 0 // set to 0 if not in map, otherwise make no change
-			maxFound[cint] = struct{}{}
+			// Only eliminate from this position, but set the known maximum letter count
+			ps.possible[i].Remove(cint)
+			localMaxs[cint] = localMins[cint]
 		case PRESENT:
 			// Eliminate from this position only
 			ps.possible[i].Remove(cint)
-			letterCounts[cint]++
+			// Increase the known number of minimum counts
+			localMins[cint]++
+			// Trick: increase the known number of maximum counts to deal with a CORRECT or PRESENT after an ABSENT
+			localMaxs[cint]++
 		case CORRECT:
-			// Eliminate all other options
+			// Eliminate all other options from this position
 			ps.possible[i].Clear()
 			ps.possible[i].Set(cint)
-			letterCounts[cint]++
+			// Increase the known number of minimum counts
+			localMins[cint]++
+			// Trick: increase the known number of maximum counts to deal with a CORRECT or PRESENT after an ABSENT
+			localMaxs[cint]++
 		}
 	}
 	// Update counts
-	for cint, n := range letterCounts {
-		if n > ps.minimumPresent[cint-1] {
-			ps.minimumPresent[cint-1] = n
+	for i := range localMaxs {
+		if ps.minimumPresent[i] < localMins[i] {
+			ps.minimumPresent[i] = localMins[i]
 		}
-		if _, ok := maxFound[cint]; ok {
-			ps.maximumPresent[cint-1] = n
+		if ps.maximumPresent[i] > localMaxs[i] {
+			if localMaxs[i] > 5 {
+				ps.maximumPresent[i] = 5
+			} else {
+				ps.maximumPresent[i] = localMaxs[i]
+			}
 		}
 	}
 }

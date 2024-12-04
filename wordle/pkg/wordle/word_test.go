@@ -9,7 +9,7 @@ import (
 func randomWord(s rand.Source) Word {
 	var w Word
 	for i := range w {
-		w[i] = byte(s.Int63()%ALPHABET_SIZE) + 1
+		w[i] = byte(s.Int63() % ALPHABET_SIZE)
 	}
 	return w
 }
@@ -25,28 +25,60 @@ func TestWord_Compare(t *testing.T) {
 		want WordStatus
 	}{
 		{
-			name: "single-single",
-			w:    NewWordFromString("abcde"),
+			name: "first-correct-of-many",
+			w:    NewWordFromString("axxxx"),
 			args: args{
-				soln: NewWordFromString("acegi"),
+				soln: NewWordFromString("aabbb"),
 			},
-			want: WordStatus{CORRECT, ABSENT, PRESENT, ABSENT, PRESENT},
+			want: WordStatus{CORRECT, ABSENT, ABSENT, ABSENT, ABSENT},
 		},
 		{
-			name: "multiple-single",
-			w:    NewWordFromString("aabbc"),
+			name: "second-correct-of-many",
+			w:    NewWordFromString("xaxxx"),
 			args: args{
-				soln: NewWordFromString("abcde"),
+				soln: NewWordFromString("aabbb"),
 			},
-			want: WordStatus{CORRECT, ABSENT, PRESENT, ABSENT, PRESENT},
+			want: WordStatus{ABSENT, CORRECT, ABSENT, ABSENT, ABSENT},
 		},
 		{
-			name: "single-multiple",
-			w:    NewWordFromString("abcde"),
+			name: "third-present-of-many",
+			w:    NewWordFromString("xxaxx"),
 			args: args{
-				soln: NewWordFromString("aabbc"),
+				soln: NewWordFromString("aabbb"),
 			},
-			want: WordStatus{CORRECT, PRESENT, PRESENT, ABSENT, ABSENT},
+			want: WordStatus{ABSENT, ABSENT, PRESENT, ABSENT, ABSENT},
+		},
+		{
+			name: "two-present-of-many",
+			w:    NewWordFromString("xxxaa"),
+			args: args{
+				soln: NewWordFromString("aabbb"),
+			},
+			want: WordStatus{ABSENT, ABSENT, ABSENT, PRESENT, PRESENT},
+		},
+		{
+			name: "two-present-of-three",
+			w:    NewWordFromString("xxaaa"),
+			args: args{
+				soln: NewWordFromString("aabbb"),
+			},
+			want: WordStatus{ABSENT, ABSENT, PRESENT, PRESENT, ABSENT},
+		},
+		{
+			name: "one-correct-one-present-of-three",
+			w:    NewWordFromString("xaxaa"),
+			args: args{
+				soln: NewWordFromString("aabbb"),
+			},
+			want: WordStatus{ABSENT, CORRECT, ABSENT, PRESENT, ABSENT},
+		},
+		{
+			name: "perfect-guess",
+			w:    NewWordFromString("aabbb"),
+			args: args{
+				soln: NewWordFromString("aabbb"),
+			},
+			want: WordStatus{CORRECT, CORRECT, CORRECT, CORRECT, CORRECT},
 		},
 	}
 	for _, tt := range tests {

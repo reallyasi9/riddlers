@@ -1,7 +1,7 @@
 package wordle
 
 const WORD_SIZE = 5
-const ZERO_CHAR = 'a' - 1
+const ZERO_CHAR = 'a'
 
 type Word [WORD_SIZE]byte
 

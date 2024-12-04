@@ -1,57 +1,27 @@
 package wordle
 
 import (
+	"math/rand"
 	"testing"
 )
 
-// func BenchmarkDisjointLetters(b *testing.B) {
-// 	guesses := []Word{
-// 		NewWord([]byte("hello")),
-// 		NewWord([]byte("smato")),
-// 	}
+func BenchmarkAmbiguities(b *testing.B) {
+	s := rand.NewSource(0x42)
+	solns := make([]Word, 1024)
+	for i := range solns {
+		solns[i] = randomWord(s)
+	}
+	wordle := NewWordle(solns)
 
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		disjointLetters(guesses)
-// 	}
-// }
-
-func BenchmarkCompare(b *testing.B) {
-	word := NewWord([]byte("hello"))
-	other := NewWord([]byte("shlep"))
+	guesses := make([]Word, b.N)
+	for i := range guesses {
+		guesses[i] = randomWord(s)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		word.Compare(other)
+		for _, target := range solns {
+			wordle.Ambiguities(guesses, target)
+		}
 	}
 }
-
-// func randomWord() Word {
-// 	var w Word
-// 	for i := 0; i < 5; i++ {
-// 		w[i] = byte(rand.Intn(26))
-// 	}
-// 	return w
-// }
-
-// func BenchmarkAmbiguities(b *testing.B) {
-// 	solnFile, err := os.Open("solutions.txt")
-// 	if err != nil {
-// 		b.Fatal(err)
-// 	}
-// 	defer solnFile.Close()
-// 	solns := readWords(solnFile)
-// 	wordle := NewWordle(solns)
-
-// 	guesses := []Word{
-// 		NewWord([]byte("hello")),
-// 		NewWord([]byte("shaps")),
-// 	}
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		for _, target := range solns {
-// 			wordle.Ambiguities(guesses, target)
-// 		}
-// 	}
-// }
