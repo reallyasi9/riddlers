@@ -1,5 +1,7 @@
 package wordle
 
+import "math"
+
 const ALPHABET_SIZE = 26
 
 type Wordle struct {
@@ -33,18 +35,26 @@ func (w *Wordle) AddGuess(guess Word, ws WordStatus) int {
 			cut = append(cut, i)
 		}
 	}
-	for _, i := range cut {
-		w.solutions[i] = w.solutions[len(w.solutions)-1]
-		w.solutions = w.solutions[:len(w.solutions)-1]
+	last := len(cut) - 1
+	for i := range cut {
+		c := cut[last-i]
+		w.solutions = append(w.solutions[:c], w.solutions[c+1:]...)
 	}
 	return len(w.solutions)
 }
 
-func (w *Wordle) Try(guesses []Word) float32 {
+func (w *Wordle) Try(guesses []Word) float64 {
 	groups := [][]Word{w.solutions}
 	for _, guess := range guesses {
 		newGroups := [][]Word{}
 		for _, group := range groups {
+			if len(group) == 0 {
+				continue
+			}
+			if len(group) == 1 {
+				newGroups = append(newGroups, group)
+				continue
+			}
 			outcomeTabulation := [N_STATUS_OUTCOMES][]Word{}
 			for _, soln := range group {
 				status := guess.Compare(soln)
@@ -58,9 +68,9 @@ func (w *Wordle) Try(guesses []Word) float32 {
 		}
 		groups = newGroups
 	}
-	prob := float32(0)
+	entropy := float64(0)
 	for _, group := range groups {
-		prob += 1 / float32(len(group))
+		entropy += math.Log2(float64(len(group)))
 	}
-	return prob / float32(len(w.solutions))
+	return entropy
 }

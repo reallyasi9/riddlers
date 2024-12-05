@@ -88,7 +88,7 @@ func (cp ComboProb) String() string {
 	return fmt.Sprintf("%s = %f (%d deduced)", joined, cp.Probability, cp.Deduced)
 }
 
-func calculateProbabilities(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in <-chan []wordle.Word) <-chan ComboProb {
+func calculateEntropy(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in <-chan []wordle.Word) <-chan ComboProb {
 	out := make(chan ComboProb, 1024)
 	filter := func(words []wordle.Word) bool {
 		return true
@@ -110,10 +110,10 @@ func calculateProbabilities(wdl *wordle.Wordle, solns []wordle.Word, disjoint bo
 					return
 				}
 
-				prob := 0.
+				entropy := 0.
 				deduced := 0
 				for _, solution := range solns {
-					ambiguities := wdl.Ambiguities(words, solution).Count()
+					e := wdl.Try(words)
 					if ambiguities == 1 {
 						deduced++
 					}

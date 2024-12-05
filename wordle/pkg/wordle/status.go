@@ -63,7 +63,7 @@ type PlayStatus struct {
 func NewPlayStatus() *PlayStatus {
 	possible := [WORD_SIZE]bitmap.Bitmap{}
 	for i := range possible {
-		possible[i] = bitmap.Bitmap{1 << N_LETTERS}
+		possible[i] = bitmap.Bitmap{1<<(N_LETTERS+1) - 1}
 	}
 	maximumPresent := [N_LETTERS]int{}
 	for c := range maximumPresent {
@@ -79,7 +79,7 @@ func NewPlayStatus() *PlayStatus {
 func (ps *PlayStatus) Possible(soln Word) bool {
 	letterCounts := [N_LETTERS]int{}
 	for i, c := range soln {
-		cint := uint32(c) - 1
+		cint := uint32(c)
 		if !ps.possible[i].Contains(cint) {
 			return false
 		}
@@ -104,7 +104,7 @@ func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {
 	}
 
 	for i, st := range ws {
-		cint := uint32(word[i]) - 1
+		cint := uint32(word[i])
 		switch st {
 		case ABSENT:
 			// Only eliminate from this position, but set the known maximum letter count
