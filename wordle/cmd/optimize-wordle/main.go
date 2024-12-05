@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,15 +18,15 @@ import (
 	"github.com/reallyasi9/riddler/wordle/pkg/wordle"
 )
 
-var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize after starting guesses")
+var nGuesses = flag.Int("g", 2, "(exact) number of guesses to optimize after starting set")
 var forceDisjoint = flag.Bool("d", false, "force all words in all guesses to have mutually unique letters")
-var startingWords = flag.String("s", "", "comma-separated list of starting guesses")
+var optVariable = flag.String("v", "entropy", "optimization variable (one of 'entropy', 'probability', or 'deduced')")
 
 func init() {
 	log.SetOutput(os.Stdout)
 	flag.CommandLine.Usage = func() {
 		name, _ := os.Executable()
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <solutions-file> <guesses-file> [-d] [-g N] [-s GUESS,GUESS,...]\n", filepath.Base(name))
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <solutions-file> <guesses-file> [-d] [-g N] [-v {entropy,probability,deduced}] [GUESS [GUESS...]]\n", filepath.Base(name))
 		flag.PrintDefaults()
 	}
 }
@@ -33,7 +34,7 @@ func init() {
 func main() {
 
 	flag.Parse()
-	if flag.NArg() != 2 {
+	if flag.NArg() < 2 {
 		flag.CommandLine.Usage()
 		name, _ := os.Executable()
 		log.Fatalf("%s requres two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses", filepath.Base(name))
@@ -51,22 +52,27 @@ func main() {
 	}
 	defer guessFile.Close()
 
-	start := []wordle.Word{}
-	for _, word := range strings.Split(*startingWords, ",") {
-		if len(word) != 5 {
-			continue
-		}
-		start = append(start, wordle.NewWordFromString(word))
+	if *nGuesses > wordle.MAX_GUESSES {
+		log.Fatalf("a maximum of %d guesses are allowed", wordle.MAX_GUESSES)
+	}
+
+	if *optVariable != "entropy" && *optVariable != "probability" && *optVariable != "deduced" {
+		log.Fatalf("optimization variable not allowed")
 	}
 
 	solns := readWords(solnFile)
 	guesses := readWords(guessFile)
 
+	start := make([]wordle.Word, flag.NArg()-2)
+	for i, arg := range flag.Args()[2:] {
+		start[i] = wordle.NewWordFromString(arg)
+	}
+
 	wordle := wordle.NewWordle(solns)
 
-	combinations := wordCombinations(guesses, start, *nGuesses)                       // produce combinations
-	unfiltered := calculateProbabilities(wordle, solns, *forceDisjoint, combinations) // multi-thread calculate solutions
-	filtered := filterBest(unfiltered)                                                // merge
+	combinations := wordCombinations(guesses, start, *nGuesses)          // produce combinations
+	unfiltered := calculateEntropy(wordle, *forceDisjoint, combinations) // multi-thread calculate solutions
+	filtered := filterBest(unfiltered, *optVariable)                     // merge
 
 	for cp := range filtered {
 		log.Print(cp)
@@ -75,8 +81,26 @@ func main() {
 
 type ComboProb struct {
 	Combination []wordle.Word
+	Entropy     float64
 	Probability float64
 	Deduced     int
+}
+
+func (cp ComboProb) Compare(other ComboProb) int {
+	if cp.Entropy < other.Entropy {
+		return 1
+	} else if cp.Entropy > other.Entropy {
+		return -1
+	} else if cp.Probability > other.Probability {
+		return 1
+	} else if cp.Probability < other.Probability {
+		return -1
+	} else if cp.Deduced > other.Deduced {
+		return 1
+	} else if cp.Deduced > other.Deduced {
+		return -1
+	}
+	return 0
 }
 
 func (cp ComboProb) String() string {
@@ -85,10 +109,10 @@ func (cp ComboProb) String() string {
 		words[i] = w.String()
 	}
 	joined := strings.Join(words, " + ")
-	return fmt.Sprintf("%s = %f (%d deduced)", joined, cp.Probability, cp.Deduced)
+	return fmt.Sprintf("%s = %f (p=%f, %d deduced)", joined, cp.Entropy, cp.Probability, cp.Deduced)
 }
 
-func calculateEntropy(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in <-chan []wordle.Word) <-chan ComboProb {
+func calculateEntropy(wdl *wordle.Wordle, disjoint bool, in <-chan []wordle.Word) <-chan ComboProb {
 	out := make(chan ComboProb, 1024)
 	filter := func(words []wordle.Word) bool {
 		return true
@@ -98,7 +122,6 @@ func calculateEntropy(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in
 			return disjointLetters(words)
 		}
 	}
-	nsolns := float64(len(solns))
 	go func() {
 		var wg sync.WaitGroup
 		for words := range in {
@@ -110,16 +133,8 @@ func calculateEntropy(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in
 					return
 				}
 
-				entropy := 0.
-				deduced := 0
-				for _, solution := range solns {
-					e := wdl.Try(words)
-					if ambiguities == 1 {
-						deduced++
-					}
-					prob += 1. / float64(ambiguities)
-				}
-				out <- ComboProb{Combination: words, Probability: prob / nsolns, Deduced: deduced}
+				entropy, probability, deduced := wdl.Try(words)
+				out <- ComboProb{Combination: words, Entropy: entropy, Probability: probability, Deduced: deduced}
 			}(words)
 		}
 		wg.Wait()
@@ -128,16 +143,25 @@ func calculateEntropy(wdl *wordle.Wordle, solns []wordle.Word, disjoint bool, in
 	return out
 }
 
-func filterBest(in <-chan ComboProb) <-chan ComboProb {
+func filterBest(in <-chan ComboProb, variable string) <-chan ComboProb {
 	out := make(chan ComboProb, 1024)
 	go func() {
-		best := ComboProb{Combination: make([]wordle.Word, 0)}
+		best := ComboProb{Combination: make([]wordle.Word, 0), Entropy: math.Inf(1)}
 		for cp := range in {
-			if cp.Probability > best.Probability || (cp.Probability == best.Probability && cp.Deduced > best.Deduced) {
+			var better bool
+			if variable == "entropy" {
+				better = cp.Entropy < best.Entropy
+			} else if variable == "probability" {
+				better = cp.Probability > best.Probability
+			} else if variable == "deduced" {
+				better = cp.Deduced > best.Deduced
+			}
+			if better {
 				if len(best.Combination) != len(cp.Combination) {
 					best.Combination = make([]wordle.Word, len(cp.Combination))
 				}
 				copy(best.Combination, cp.Combination)
+				best.Entropy = cp.Entropy
 				best.Probability = cp.Probability
 				best.Deduced = cp.Deduced
 				out <- cp
@@ -152,7 +176,7 @@ func readWords(r io.Reader) []wordle.Word {
 	words := make([]wordle.Word, 0)
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		words = append(words, wordle.NewWord(scanner.Bytes()))
+		words = append(words, wordle.NewWordFromString(string(scanner.Bytes())))
 	}
 	return words
 }
@@ -174,9 +198,6 @@ func disjointLetters(ws []wordle.Word) bool {
 }
 
 func wordCombinations(ws []wordle.Word, start []wordle.Word, n int) <-chan []wordle.Word {
-	if len(start)+n > 6 {
-		panic("a maximum of only 6 guesses are allowed!")
-	}
 	out := make(chan []wordle.Word, 1024)
 	go func() {
 		numComb := combin.Binomial(len(ws), n)
@@ -186,7 +207,7 @@ func wordCombinations(ws []wordle.Word, start []wordle.Word, n int) <-chan []wor
 		for gen.Next() {
 			gen.Combination(comb)
 			words := make([]wordle.Word, n+len(start))
-			copy(words, start)
+			copy(words[:len(start)], start)
 			for i, j := range comb {
 				words[i+len(start)] = ws[j]
 			}

@@ -1,7 +1,8 @@
 package wordle
 
+import "strings"
+
 const WORD_SIZE = 5
-const ZERO_CHAR = 'a'
 
 type Word [WORD_SIZE]byte
 
@@ -9,25 +10,18 @@ func NewWord(bs []byte) Word {
 	var w Word
 	var i int
 	var b byte
-	for i, b = range bs {
-		if i >= WORD_SIZE {
-			break
-		}
-		w[i] = b - ZERO_CHAR
+	for i, b = range bs[:WORD_SIZE] { // truncate
+		w[i] = b
 	}
 	return w
 }
 
 func NewWordFromString(s string) Word {
-	return NewWord([]byte(s))
+	return NewWord([]byte(strings.ToLower(s)))
 }
 
 func (w Word) String() string {
-	out := [WORD_SIZE]byte{}
-	for i, c := range w {
-		out[i] = c + ZERO_CHAR
-	}
-	return string(out[:])
+	return string(w[:])
 }
 
 func (w Word) Compare(soln Word) WordStatus {

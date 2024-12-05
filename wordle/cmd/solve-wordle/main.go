@@ -8,19 +8,30 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/reallyasi9/riddler/wordle/pkg/wordle"
 )
 
+func init() {
+	flag.CommandLine.Usage = func() {
+		name, _ := os.Executable()
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <solutions-file> <guesses-file> [GUESS1 RESULT1 [GUESS2 RESULT2...]]\n", filepath.Base(name))
+		flag.PrintDefaults()
+	}
+}
+
 func main() {
 
 	flag.Parse()
 	if flag.NArg() < 2 {
-		log.Fatal("requres at two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses")
+		flag.CommandLine.Usage()
+		name, _ := os.Executable()
+		log.Fatalf("%s requres two positional arguments: a file containing a list of possible solutions and a file containing a list of possible guesses", filepath.Base(name))
 	}
-	if flag.NArg()%2 != 0 {
+	if (flag.NArg()-2)%2 != 0 {
 		log.Fatal("additional positional arguments must be word-status pairs")
 	}
 
@@ -38,83 +49,81 @@ func main() {
 	guessables := readWords(guessFile)
 	guessFile.Close()
 
-	startingStatus := wordle.NewPlayStatus()
+	initialGuesses := make([]wordle.Word, (flag.NArg()-2)/2)
+	initialStatus := make([]wordle.WordStatus, len(initialGuesses))
 	for iarg := 2; iarg < flag.NArg(); iarg += 2 {
 		guess := flag.Arg(iarg)
-		if len(guess) != 5 {
-			log.Fatal("guesses can only be 5 letters")
+		status := flag.Arg(iarg + 1)
+		if len(guess) != wordle.WORD_SIZE {
+			log.Fatalf("guesses must be %d letters", wordle.WORD_SIZE)
 		}
-		word := wordle.NewWordFromString(strings.ToLower(guess))
-		stat := wordle.NewWordStatus(flag.Arg(iarg + 1))
-		startingStatus.UpdateWithGuess(word, stat)
+		if len(status) != wordle.WORD_SIZE {
+			log.Fatalf("status results must be %d characters", wordle.WORD_SIZE)
+		}
+		initialGuesses[iarg/2-1] = wordle.NewWordFromString(strings.ToLower(guess))
+		initialStatus[iarg/2-1] = wordle.NewWordStatus(status)
 	}
 
-	solutions := make(map[wordle.Word]struct{})
-	for _, soln := range initialSolutions {
-		if !startingStatus.Possible(soln) {
-			continue
-		}
-		solutions[soln] = struct{}{}
-	}
+	wdl := wordle.NewWordle(initialSolutions)
+	wdl.Filter(initialGuesses, initialStatus)
 
-	if len(solutions) == 1 {
+	if wdl.Len() == 1 {
 		fmt.Print("There is only one possible soution remaining.\n")
-		for soln := range solutions {
-			fmt.Printf("%s\n", soln)
+	} else {
+		fmt.Printf("There are %d solutions remaining.\n", wdl.Len())
+	}
+	for i, soln := range wdl.Solutions() {
+		fmt.Printf("%s\n", soln)
+		if i == 9 {
+			break
 		}
+	}
+	if wdl.Len() > 10 {
+		fmt.Println("...")
+	}
+	if wdl.Len() <= 2 {
 		return
 	}
 
-	fmt.Printf("There are %d solutions remaining.\n", len(solutions))
-	if len(solutions) <= 10 {
-		for soln := range solutions {
-			fmt.Printf("%s\n", soln)
-		}
+	log.Println("Finding the guess that minimizes entropy")
+	allSolutions := make(map[wordle.Word]struct{})
+	for _, soln := range wdl.Solutions() {
+		allSolutions[soln] = struct{}{}
 	}
-	if len(solutions) == 2 {
-		return
-	}
-
-	log.Println("Finding the guess that maximizes entropy (this may take a few minutes)")
-
-	entropy := make([]EntropyWord, len(guessables))
-	nsolns := float64(len(solutions))
-	for iguess, guess := range guessables {
-		possibleSolutionGroups := make(map[uint64][]wordle.Word)
-		for soln := range solutions {
-			ws := guess.Compare(soln)
-			stat := startingStatus.Clone()
-			stat.UpdateWithGuess(guess, ws)
-			hash := stat.Hash()
-			if grp, ok := possibleSolutionGroups[hash]; ok {
-				grp = append(grp, soln)
-				possibleSolutionGroups[hash] = grp
-			} else {
-				possibleSolutionGroups[hash] = []wordle.Word{soln}
+	bestGuesses := []EntropyWord{}
+	bestEntropy := math.Inf(1)
+	for _, guess := range guessables {
+		entropy, probability, deduced := wdl.Try([]wordle.Word{guess})
+		if entropy <= bestEntropy {
+			_, isSoln := allSolutions[guess]
+			log.Printf("%s = %f (p=%f, %d deduced, solution %t)\n", guess, entropy, probability, deduced, isSoln)
+			if entropy < bestEntropy {
+				bestGuesses = bestGuesses[:0]
 			}
+			bestEntropy = entropy
+			bestGuesses = append(bestGuesses, EntropyWord{Word: guess, Entropy: entropy, Probability: probability, Deduced: deduced, IsSolution: isSoln})
 		}
-		var eta float64
-		for _, grp := range possibleSolutionGroups {
-			l := float64(len(grp)) / nsolns
-			eta += l * math.Log2(l)
-		}
-		_, isSoln := solutions[guess]
-		entropy[iguess] = EntropyWord{Entropy: eta, Word: guess, IsSolution: isSoln, SolutionGroups: len(possibleSolutionGroups)}
 	}
 
-	sort.Sort(ByEntropy(entropy))
-	fmt.Printf("Best guesses:\n")
-	for i := 0; i < 5; i++ {
-		fmt.Printf("%s (entropy increase: %f; solution groups remaining: %d; is solution: %t)\n", entropy[i].Word, -entropy[i].Entropy, entropy[i].SolutionGroups, entropy[i].IsSolution)
+	fmt.Println("Best guesses:")
+	sort.Sort(ByEntropy(bestGuesses))
+	for i, bg := range bestGuesses {
+		fmt.Printf("%d: %s = %f (p=%f, %d deduced, solution %t)\n", i+1, bg.Word, bg.Entropy, bg.Probability, bg.Deduced, bg.IsSolution)
+		if i == 9 {
+			break
+		}
 	}
-
+	if len(bestGuesses) > 10 {
+		fmt.Println("...")
+	}
 }
 
 type EntropyWord struct {
-	Entropy        float64
-	Word           wordle.Word
-	IsSolution     bool
-	SolutionGroups int
+	Word        wordle.Word
+	Entropy     float64
+	Probability float64
+	Deduced     int
+	IsSolution  bool
 }
 
 type ByEntropy []EntropyWord
@@ -129,22 +138,25 @@ func (a ByEntropy) Swap(x, y int) {
 
 func (a ByEntropy) Less(x, y int) bool {
 	if a[x].Entropy != a[y].Entropy {
-		return a[x].Entropy < a[y].Entropy
+		return a[x].Entropy > a[y].Entropy // more entropy is worse
+	}
+	if a[x].Probability != a[y].Probability {
+		return a[x].Probability < a[y].Probability
+	}
+	if a[x].Deduced != a[y].Deduced {
+		return a[x].Deduced < a[y].Deduced
 	}
 	if a[x].IsSolution != a[y].IsSolution {
 		return a[x].IsSolution
 	}
-	if a[x].SolutionGroups != a[y].SolutionGroups {
-		return a[x].SolutionGroups > a[y].SolutionGroups
-	}
-	return a[x].Word[0] < a[y].Word[0]
+	return false
 }
 
 func readWords(r io.Reader) []wordle.Word {
 	words := make([]wordle.Word, 0)
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		words = append(words, wordle.NewWord(scanner.Bytes()))
+		words = append(words, wordle.NewWordFromString(string(scanner.Bytes())))
 	}
 	return words
 }

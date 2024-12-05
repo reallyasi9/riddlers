@@ -9,6 +9,14 @@ type Wordle struct {
 	solutions []Word
 }
 
+func (w Wordle) Len() int {
+	return len(w.solutions)
+}
+
+func (w Wordle) Solutions() []Word {
+	return w.solutions
+}
+
 func NewWordle(words []Word) *Wordle {
 	ws := make([]Word, len(words))
 	copy(ws, words)
@@ -39,7 +47,7 @@ const MAX_GUESSES = 6
 
 type guessIndices [MAX_GUESSES]uint8
 
-func (w *Wordle) Try(guesses []Word) (float64, float64) {
+func (w Wordle) tryGroups(guesses []Word) map[guessIndices]int {
 	if len(guesses) > MAX_GUESSES {
 		panic(fmt.Errorf("maximum of %d guesses allowed", MAX_GUESSES))
 	}
@@ -59,10 +67,24 @@ func (w *Wordle) Try(guesses []Word) (float64, float64) {
 		groups[index]++
 	}
 
+	return groups
+}
+
+func (w Wordle) Try(guesses []Word) (float64, float64, int) {
+	groups := w.tryGroups(guesses)
+
+	n := float64(len(w.solutions))
 	entropy := float64(0)
-	prob := float64(len(groups)) / float64(len(w.solutions))
+	prob := float64(len(groups)) / n
+	deduced := int(0)
 	for _, count := range groups {
-		entropy += math.Log2(float64(count))
+		if count == 0 {
+			continue
+		}
+		if count == 1 {
+			deduced++
+		}
+		entropy += math.Log2(float64(count)) * float64(count) / n
 	}
-	return entropy, prob
+	return entropy, prob, deduced
 }

@@ -78,6 +78,7 @@ func TestWordle_Try(t *testing.T) {
 		args   args
 		want1  float64
 		want2  float64
+		want3  int
 	}{
 		{
 			name: "perfect-determination",
@@ -88,8 +89,9 @@ func TestWordle_Try(t *testing.T) {
 			args: args{
 				guesses: []Word{NewWordFromString("axxxx")},
 			},
-			want1: 0,
+			want1: 0.0,
 			want2: 1.0,
+			want3: 2,
 		},
 		{
 			name: "no-information",
@@ -102,6 +104,33 @@ func TestWordle_Try(t *testing.T) {
 			},
 			want1: 1.0,
 			want2: 0.5,
+			want3: 0,
+		},
+		{
+			name: "multiple-guesses-perfect-determination",
+			fields: fields{
+				solutions: []Word{NewWordFromString("aaaaa"), NewWordFromString("bbbbb"), NewWordFromString("aabbb")},
+				status:    NewPlayStatus(),
+			},
+			args: args{
+				guesses: []Word{NewWordFromString("xaxxx"), NewWordFromString("xxbxx")},
+			},
+			want1: 0.0,
+			want2: 1.0,
+			want3: 3,
+		},
+		{
+			name: "multiple-guesses-partial-determination",
+			fields: fields{
+				solutions: []Word{NewWordFromString("aaaaa"), NewWordFromString("bbbbb"), NewWordFromString("aabbb")},
+				status:    NewPlayStatus(),
+			},
+			args: args{
+				guesses: []Word{NewWordFromString("xaxxx"), NewWordFromString("axxxx")},
+			},
+			want1: 1.0,
+			want2: 2. / 3.,
+			want3: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -109,8 +138,8 @@ func TestWordle_Try(t *testing.T) {
 			w := &Wordle{
 				solutions: tt.fields.solutions,
 			}
-			if got1, got2 := w.Try(tt.args.guesses); got1 != tt.want1 || got2 != tt.want2 {
-				t.Errorf("Wordle.Try() = %v, %v, want %v, %v", got1, got2, tt.want1, tt.want2)
+			if got1, got2, got3 := w.Try(tt.args.guesses); got1 != tt.want1 || got2 != tt.want2 || got3 != tt.want3 {
+				t.Errorf("Wordle.Try() = %v, %v, %v want %v, %v, %v", got1, got2, got3, tt.want1, tt.want2, tt.want3)
 			}
 		})
 	}

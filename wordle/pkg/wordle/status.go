@@ -51,6 +51,8 @@ const N_STATUS_OUTCOMES = 243 // 3^5
 
 const N_LETTERS = 26
 
+const ZERO_LETTER = 'a'
+
 type PlayStatus struct {
 	// Possible solutions for each position
 	possible [WORD_SIZE]bitmap.Bitmap
@@ -79,7 +81,7 @@ func NewPlayStatus() *PlayStatus {
 func (ps *PlayStatus) Possible(soln Word) bool {
 	letterCounts := [N_LETTERS]int{}
 	for i, c := range soln {
-		cint := uint32(c)
+		cint := uint32(c) - ZERO_LETTER
 		if !ps.possible[i].Contains(cint) {
 			return false
 		}
@@ -104,7 +106,7 @@ func (ps *PlayStatus) UpdateWithGuess(word Word, ws WordStatus) {
 	}
 
 	for i, st := range ws {
-		cint := uint32(word[i])
+		cint := uint32(word[i]) - ZERO_LETTER
 		switch st {
 		case ABSENT:
 			// Only eliminate from this position, but set the known maximum letter count
