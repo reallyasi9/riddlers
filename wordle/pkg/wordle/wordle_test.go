@@ -13,7 +13,7 @@ func BenchmarkTry(b *testing.B) {
 	}
 	wordle := NewWordle(solns)
 
-	guesses := make([]Word, b.N)
+	guesses := make([]Word, 6)
 	for i := range guesses {
 		guesses[i] = randomWord(s)
 	}
@@ -24,14 +24,14 @@ func BenchmarkTry(b *testing.B) {
 	}
 }
 
-func TestWordle_AddGuess(t *testing.T) {
+func TestWordle_Filter(t *testing.T) {
 	type fields struct {
 		solutions []Word
 		status    *PlayStatus
 	}
 	type args struct {
-		guess Word
-		ws    WordStatus
+		guesses []Word
+		ws      []WordStatus
 	}
 	tests := []struct {
 		name   string
@@ -46,8 +46,8 @@ func TestWordle_AddGuess(t *testing.T) {
 				status:    NewPlayStatus(),
 			},
 			args: args{
-				guess: NewWordFromString("axxxx"),
-				ws:    NewWordStatus("+----"),
+				guesses: []Word{NewWordFromString("axxxx")},
+				ws:      []WordStatus{NewWordStatus("+----")},
 			},
 			want: 1,
 		},
@@ -56,9 +56,8 @@ func TestWordle_AddGuess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &Wordle{
 				solutions: tt.fields.solutions,
-				status:    tt.fields.status,
 			}
-			if got := w.AddGuess(tt.args.guess, tt.args.ws); got != tt.want {
+			if got := w.Filter(tt.args.guesses, tt.args.ws); got != tt.want {
 				t.Errorf("Wordle.AddGuess() = %v, want %v", got, tt.want)
 			}
 		})
@@ -77,7 +76,8 @@ func TestWordle_Try(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   float64
+		want1  float64
+		want2  float64
 	}{
 		{
 			name: "perfect-determination",
@@ -88,7 +88,8 @@ func TestWordle_Try(t *testing.T) {
 			args: args{
 				guesses: []Word{NewWordFromString("axxxx")},
 			},
-			want: 0,
+			want1: 0,
+			want2: 1.0,
 		},
 		{
 			name: "no-information",
@@ -99,17 +100,17 @@ func TestWordle_Try(t *testing.T) {
 			args: args{
 				guesses: []Word{NewWordFromString("xxaxx")},
 			},
-			want: 1,
+			want1: 1.0,
+			want2: 0.5,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &Wordle{
 				solutions: tt.fields.solutions,
-				status:    tt.fields.status,
 			}
-			if got := w.Try(tt.args.guesses); got != tt.want {
-				t.Errorf("Wordle.Try() = %v, want %v", got, tt.want)
+			if got1, got2 := w.Try(tt.args.guesses); got1 != tt.want1 || got2 != tt.want2 {
+				t.Errorf("Wordle.Try() = %v, %v, want %v, %v", got1, got2, tt.want1, tt.want2)
 			}
 		})
 	}

@@ -1,76 +1,68 @@
 package wordle
 
-import "math"
-
-const ALPHABET_SIZE = 26
+import (
+	"fmt"
+	"math"
+)
 
 type Wordle struct {
 	solutions []Word
-	status    *PlayStatus
 }
 
 func NewWordle(words []Word) *Wordle {
 	ws := make([]Word, len(words))
-	ss := make([]Word, len(words))
 	copy(ws, words)
-	copy(ss, words)
 
-	wordle := Wordle{solutions: ws, status: NewPlayStatus()}
+	wordle := Wordle{solutions: ws}
 	return &wordle
 }
 
-func (w *Wordle) GetSolution(i int) Word {
-	return w.solutions[i]
-}
+func (w *Wordle) Filter(guesses []Word, ws []WordStatus) int {
+	ps := NewPlayStatus()
+	for i := range guesses {
+		ps.UpdateWithGuess(guesses[i], ws[i])
+	}
 
-func (w *Wordle) NSolutions() int {
+	last := len(w.solutions) - 1
+	for i := range w.solutions {
+		j := last - i
+		soln := w.solutions[j]
+		if !ps.Possible(soln) {
+			w.solutions = append(w.solutions[:j], w.solutions[j+1:]...)
+		}
+	}
+
 	return len(w.solutions)
 }
 
-func (w *Wordle) AddGuess(guess Word, ws WordStatus) int {
-	w.status.UpdateWithGuess(guess, ws)
-	cut := []int{}
-	for i, soln := range w.solutions {
-		if !w.status.Possible(soln) {
-			cut = append(cut, i)
-		}
-	}
-	last := len(cut) - 1
-	for i := range cut {
-		c := cut[last-i]
-		w.solutions = append(w.solutions[:c], w.solutions[c+1:]...)
-	}
-	return len(w.solutions)
-}
+const MAX_GUESSES = 6
 
-func (w *Wordle) Try(guesses []Word) float64 {
-	groups := [][]Word{w.solutions}
-	for _, guess := range guesses {
-		newGroups := [][]Word{}
-		for _, group := range groups {
-			if len(group) == 0 {
-				continue
-			}
-			if len(group) == 1 {
-				newGroups = append(newGroups, group)
-				continue
-			}
-			outcomeTabulation := [N_STATUS_OUTCOMES][]Word{}
-			for _, soln := range group {
-				status := guess.Compare(soln)
-				outcomeTabulation[status.TrinaryIndex()] = append(outcomeTabulation[status.TrinaryIndex()], soln)
-			}
-			for _, solns := range outcomeTabulation {
-				if len(solns) > 0 {
-					newGroups = append(newGroups, solns)
-				}
-			}
-		}
-		groups = newGroups
+type guessIndices [MAX_GUESSES]uint8
+
+func (w *Wordle) Try(guesses []Word) (float64, float64) {
+	if len(guesses) > MAX_GUESSES {
+		panic(fmt.Errorf("maximum of %d guesses allowed", MAX_GUESSES))
 	}
+	indices := make(map[Word]guessIndices)
+	for _, soln := range w.solutions {
+		for i, guess := range guesses {
+			status := guess.Compare(soln)
+			index := indices[soln]
+			index[i] = uint8(status.TrinaryIndex())
+			indices[soln] = index
+		}
+	}
+
+	// Invert into count of indices
+	groups := make(map[guessIndices]int)
+	for _, index := range indices {
+		groups[index]++
+	}
+
 	entropy := float64(0)
-	for _, group := range groups {
-		entropy += math.Log2(float64(len(group)))
+	prob := float64(len(groups)) / float64(len(w.solutions))
+	for _, count := range groups {
+		entropy += math.Log2(float64(count))
 	}
-	return entropy
+	return entropy, prob
 }

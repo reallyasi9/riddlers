@@ -9,7 +9,7 @@ import (
 func randomWord(s rand.Source) Word {
 	var w Word
 	for i := range w {
-		w[i] = byte(s.Int63() % ALPHABET_SIZE)
+		w[i] = byte(s.Int63() % N_LETTERS)
 	}
 	return w
 }
